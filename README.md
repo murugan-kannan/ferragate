@@ -450,6 +450,107 @@ impl Plugin for CustomAuthPlugin {
 
 ---
 
+## 📝 **Logging Configuration**
+
+Ferragate uses the powerful `tracing` ecosystem for structured logging with support for multiple outputs, log levels, and formats.
+
+### **Configuration Options**
+
+Configure logging using environment variables:
+
+```bash
+# Log level (trace, debug, info, warn, error)
+export RUST_LOG=info
+
+# JSON format logging (true/false)
+export LOG_JSON=false
+
+# Log to file (true/false)
+export LOG_TO_FILE=true
+
+# Directory for log files
+export LOG_DIR=logs
+
+# Log file prefix
+export LOG_FILE_PREFIX=ferragate
+
+# Include file and line numbers in logs (true/false)
+export LOG_INCLUDE_LOCATION=false
+```
+
+### **Environment-Specific Configurations**
+
+**Development Environment:**
+```bash
+export RUST_LOG=debug
+export LOG_JSON=false
+export LOG_TO_FILE=true
+export LOG_INCLUDE_LOCATION=true
+```
+
+**Production Environment:**
+```bash
+export RUST_LOG=info
+export LOG_JSON=true
+export LOG_TO_FILE=true
+export LOG_INCLUDE_LOCATION=false
+```
+
+**Testing Environment:**
+```bash
+export RUST_LOG=trace
+export LOG_JSON=false
+export LOG_TO_FILE=false
+export LOG_INCLUDE_LOCATION=true
+```
+
+### **Log Outputs**
+
+- **Console**: Human-readable logs for development
+- **File**: Daily rotating log files in `logs/` directory
+- **JSON**: Structured logs for production monitoring
+- **HTTP Tracing**: Request/response logging with trace IDs
+
+### **Log Levels**
+
+- `TRACE`: Very verbose debugging information
+- `DEBUG`: Debugging information 
+- `INFO`: General operational messages (default)
+- `WARN`: Warning conditions
+- `ERROR`: Error conditions
+
+### **Sample Log Output**
+
+**Console Format (Development):**
+```
+2025-07-20T10:30:45.123Z  INFO ferragate: 🚀 Starting Ferragate application
+2025-07-20T10:30:45.124Z  INFO ferragate: Application state initialized  
+2025-07-20T10:30:45.125Z  INFO ferragate: 🚀 Ferragate server running on http://0.0.0.0:3000
+2025-07-20T10:30:45.200Z DEBUG ferragate::health: Health endpoint accessed
+```
+
+**JSON Format (Production):**
+```json
+{
+  "timestamp": "2025-07-20T10:30:45.123Z",
+  "level": "INFO",
+  "target": "ferragate",
+  "message": "🚀 Starting Ferragate application",
+  "span": {
+    "request_id": "req_1721470245123"
+  }
+}
+```
+
+### **Log File Management**
+
+- Log files are created daily in the format: `ferragate.2025-07-20.log`
+- Files are automatically rotated to prevent disk space issues
+- Compressed archives can be configured for long-term retention
+- Default location: `./logs/` directory
+
+---
+
 ## 🤝 **Contributing**
 
 We welcome contributions! Here's how to get started:

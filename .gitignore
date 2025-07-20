@@ -1,1 +1,8 @@
 /target
+
+# Log files
+/logs/*.log
+/logs/*.log.*
+
+# Environment files
+.env
