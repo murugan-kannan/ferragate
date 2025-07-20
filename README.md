@@ -3,9 +3,9 @@
 > **Multi-tenant, high-performance API Gateway built in Rust** - Secure, scalable, and developer-friendly
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org/)
-[![Build Status](https://img.shields.io/github/workflow/status/your-org/ferragate/CI)](https://github.com/your-org/ferragate/actions)
-[![Discord](https://img.shields.io/discord/your-discord-id?label=discord)](https://discord.gg/ferragate)
+[![Rust](https://img.shields.io/badge/rust-1.80+-orange.svg)](https://www.rust-lang.org/)
+[![Build Status](https://img.shields.io/github/workflow/status/murugan-kannan/ferragate/CI)](https://github.com/murugan-kannan/ferragate/actions)
+[![Discord](https://img.shields.io/discord/your-discord-id?label=discord)](https://discord.gg/zECWRRgW)
 
 ---
 
@@ -317,7 +317,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 ### **Option 1: Docker (Recommended)**
 ```bash
 # Clone and start with Docker Compose
-git clone https://github.com/your-org/ferragate
+git clone https://github.com/murugan-kannan/ferragate
 cd ferragate
 docker-compose up -d
 
@@ -331,7 +331,7 @@ curl http://localhost:8080/health
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Build FerraGate
-git clone https://github.com/your-org/ferragate
+git clone https://github.com/murugan-kannan/ferragate
 cd ferragate
 cargo build --release
 
@@ -523,21 +523,41 @@ export LOG_INCLUDE_LOCATION=true
 
 **Console Format (Development):**
 ```
-2025-07-20T10:30:45.123Z  INFO ferragate: 🚀 Starting Ferragate application
-2025-07-20T10:30:45.124Z  INFO ferragate: Application state initialized  
-2025-07-20T10:30:45.125Z  INFO ferragate: 🚀 Ferragate server running on http://0.0.0.0:3000
-2025-07-20T10:30:45.200Z DEBUG ferragate::health: Health endpoint accessed
+2025-07-20T08:43:07.428Z  INFO ferragate::logging: File logging configured: /app/logs/ferragate (requires custom subscriber setup)
+2025-07-20T08:43:07.428Z  INFO ferragate: Starting Ferragate application
+2025-07-20T08:43:07.428Z  INFO ferragate: Application state initialized
+2025-07-20T08:43:07.428Z  INFO ferragate: Starting background health check task
+2025-07-20T08:43:07.428Z  INFO health_check_background_task: ferragate::health: Background health check task started
+2025-07-20T08:43:07.428Z  INFO ferragate: Ferragate server running on http://0.0.0.0:3000
+2025-07-20T08:43:07.428Z  INFO ferragate: Health endpoints:
+2025-07-20T08:43:07.428Z  INFO ferragate:    - Health: http://localhost:3000/health
+2025-07-20T08:43:07.428Z  INFO ferragate:    - Liveness: http://localhost:3000/health/live
+2025-07-20T08:43:07.428Z  INFO ferragate:    - Readiness: http://localhost:3000/health/ready
+2025-07-20T08:43:07.428Z  INFO ferragate: Background health checks running every 30 seconds
+2025-07-20T08:43:37.429Z  INFO health_check_background_task: ferragate::health: Running 0 background health checks...
+2025-07-20T08:43:37.429Z DEBUG health_check_background_task: ferragate::health: Background health checks completed
+2025-07-20T08:43:45.650Z DEBUG ferragate::health: Health endpoint accessed
+2025-07-20T08:43:45.651Z DEBUG ferragate::health: Health check passed - all systems healthy
 ```
 
 **JSON Format (Production):**
 ```json
 {
-  "timestamp": "2025-07-20T10:30:45.123Z",
+  "timestamp": "2025-07-20T08:43:07.428166763Z",
   "level": "INFO",
   "target": "ferragate",
-  "message": "🚀 Starting Ferragate application",
+  "message": "Starting Ferragate application",
   "span": {
-    "request_id": "req_1721470245123"
+    "request_id": "req_1721470987428166763_001"
+  }
+}
+{
+  "timestamp": "2025-07-20T08:43:07.428288347Z",
+  "level": "INFO", 
+  "target": "ferragate",
+  "message": "Ferragate server running on http://0.0.0.0:3000",
+  "span": {
+    "request_id": "req_1721470987428288347_002"
   }
 }
 ```
@@ -558,7 +578,7 @@ We welcome contributions! Here's how to get started:
 ### **Development Setup**
 ```bash
 # Fork and clone the repository
-git clone https://github.com/your-username/ferragate
+git clone https://github.com/murugan-kannan/ferragate
 cd ferragate
 
 # Install development dependencies
@@ -592,15 +612,15 @@ make dev-start
 
 ### **Get Help**
 - 📚 **[Documentation](https://ferragate.dev/docs)** - Comprehensive guides and API reference
-- 💬 **[Discord](https://discord.gg/ferragate)** - Real-time community chat
-- 🐛 **[GitHub Issues](https://github.com/your-org/ferragate/issues)** - Bug reports and feature requests
-- 💡 **[GitHub Discussions](https://github.com/your-org/ferragate/discussions)** - Q&A and ideas
+- 💬 **[Discord](https://discord.gg/zECWRRgW)** - Real-time community chat
+- 🐛 **[GitHub Issues](https://github.com/murugan-kannan/ferragate/issues)** - Bug reports and feature requests
+- 💡 **[GitHub Discussions](https://github.com/murugan-kannan/ferragate/discussions)** - Q&A and ideas
 
 ### **Community Stats**
-- 🌟 **Stars**: ![GitHub Repo stars](https://img.shields.io/github/stars/your-org/ferragate)
-- 🍴 **Forks**: ![GitHub forks](https://img.shields.io/github/forks/your-org/ferragate)
-- 👥 **Contributors**: ![GitHub contributors](https://img.shields.io/github/contributors/your-org/ferragate)
-- 📦 **Downloads**: ![GitHub all releases](https://img.shields.io/github/downloads/your-org/ferragate/total)
+- 🌟 **Stars**: ![GitHub Repo stars](https://img.shields.io/github/stars/murugan-kannan/ferragate)
+- 🍴 **Forks**: ![GitHub forks](https://img.shields.io/github/forks/murugan-kannan/ferragate)
+- 👥 **Contributors**: ![GitHub contributors](https://img.shields.io/github/contributors/murugan-kannan/ferragate)
+- 📦 **Downloads**: ![GitHub all releases](https://img.shields.io/github/downloads/murugan-kannan/ferragate/total)
 
 ### **Recognition Program**
 - 🏆 **Contributor Hall of Fame** - Featured in our documentation
@@ -654,10 +674,10 @@ copies or substantial portions of the Software.
 <div align="center">
   <h3>🚀 Ready to build the next generation of API infrastructure?</h3>
   <p>
-    <a href="https://github.com/your-org/ferragate/fork">
+    <a href="https://github.com/murugan-kannan/ferragate/fork">
       <img src="https://img.shields.io/badge/Fork-Repository-blue?style=for-the-badge&logo=github" alt="Fork Repository">
     </a>
-    <a href="https://discord.gg/ferragate">
+    <a href="https://discord.gg/zECWRRgW">
       <img src="https://img.shields.io/badge/Join-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join Discord">
     </a>
     <a href="https://ferragate.dev/docs">
