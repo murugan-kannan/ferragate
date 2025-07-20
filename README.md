@@ -70,7 +70,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🟢 **Phase 1: v0.1.0 - Foundation** *(Month 1-2)*
+### 🟢 **Phase 1: v0.1.0 - Foundation** *(Q3 2025)*
 **Goal:** Basic reverse proxy with file-based configuration
 **Status:** 🟡 **In Development** | **Release:** August 30, 2025
 
@@ -93,7 +93,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🟡 **Phase 2: v0.2.0 - Multi-Tenant Control** *(Month 3-4)*
+### 🟡 **Phase 2: v0.2.0 - Multi-Tenant Control** *(Q4 2025)*
 **Goal:** PostgreSQL-backed dynamic routing with tenant model
 
 <details>
@@ -116,7 +116,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🟠 **Phase 3: v0.3.0 - Security & Plugins** *(Month 5-6)*
+### 🟠 **Phase 3: v0.3.0 - Security & Plugins** *(Q1 2026)*
 **Goal:** Authentication, rate limiting, and plugin architecture
 
 <details>
@@ -142,7 +142,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🔵 **Phase 4: v0.4.0 - Advanced Features** *(Month 7-8)*
+### 🔵 **Phase 4: v0.4.0 - Advanced Features** *(Q2 2026)*
 **Goal:** Production-ready features with distributed capabilities
 
 <details>
@@ -168,7 +168,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🟣 **Phase 5: v0.5.0 - Management UI** *(Month 9-10)*
+### 🟣 **Phase 5: v0.5.0 - Management UI** *(Q3 2026)*
 **Goal:** Web dashboard and comprehensive developer experience
 
 <details>
@@ -193,7 +193,7 @@ Build a **secure, high-performance, multi-tenant API Gateway** in Rust that riva
 
 ---
 
-### 🔴 **Phase 6: v1.0.0 - Enterprise Ready** *(Month 11-12)*
+### 🔴 **Phase 6: v1.0.0 - Enterprise Ready** *(Q4 2026)*
 **Goal:** Enterprise-grade, compliance-ready production release
 
 <details>
