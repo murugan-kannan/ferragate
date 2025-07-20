@@ -1,0 +1,246 @@
+{
+    "project_name": "FerraGate",
+    "description": "FerraGate is a secure, high-performance, open-source multi-tenant API Gateway written in Rust. Inspired by modern API platforms like Kong, it's designed for cloud-native, zero-trust environments with support for dynamic control planes and scalable data planes.",
+    "goals": [
+        "Build a secure, fast API Gateway in Rust",
+        "Support multi-tenancy with separate Control Plane and Data Plane",
+        "Create modular plugins for routing, rate limiting, auth, etc.",
+        "Deploy in containers (Docker/Kubernetes) with cloud-native observability",
+        "Open source first with developer-friendly CLI and Web UI",
+        "Build incrementally and testable from day one"
+    ],
+    "tech_stack": {
+        "language": "Rust (Edition 2021, MSRV: 1.70+)",
+        "web_framework": "Axum 0.7+ for HTTP server and routing",
+        "async_runtime": "Tokio 1.0+ with full features",
+        "config": "Serde, TOML/YAML/JSON support with validation",
+        "database": "PostgreSQL with SQLx (compile-time checked queries)",
+        "caching": "Redis for distributed rate limiting and sessions",
+        "auth": "JWT (jsonwebtoken), OAuth2, API keys",
+        "control_plane_api": "REST API with Axum, OpenAPI/Swagger docs",
+        "data_plane": "High-performance reverse proxy with plugin hooks",
+        "config_storage": "PostgreSQL for dynamic config, file-based for static",
+        "metrics": "Prometheus + OpenTelemetry tracing",
+        "logging": "Tracing crate with structured JSON output",
+        "cli_tool": "Clap v4+ for command-line interface",
+        "testing": "Tokio-test, criterion for benchmarks, testcontainers",
+        "dashboard": "React + TypeScript + Tailwind + Shadcn/ui",
+        "deployment": "Docker multi-stage builds, Kubernetes Helm charts"
+    },
+    "architecture": {
+        "pattern": "Modular monolith with clear separation of concerns",
+        "components": {
+            "data_plane": "High-performance HTTP proxy with plugin system",
+            "control_plane": "REST API for configuration management",
+            "plugin_system": "Trait-based plugins with lifecycle hooks",
+            "storage": "PostgreSQL for config, Redis for state",
+            "cli": "Administrative tool for setup and management",
+            "web_ui": "Self-service dashboard for tenants"
+        },
+        "directories": {
+            "src/": "Main application code",
+            "src/data_plane/": "Reverse proxy implementation",
+            "src/control_plane/": "API and configuration management",
+            "src/plugins/": "Built-in plugins (auth, rate limit, etc.)",
+            "src/storage/": "Database and cache abstractions",
+            "src/config/": "Configuration parsing and validation",
+            "src/cli/": "Command-line interface",
+            "web/": "React dashboard application",
+            "migrations/": "Database migrations",
+            "tests/": "Integration and end-to-end tests",
+            "docs/": "Documentation and examples"
+        }
+    },
+    "coding_guidelines": {
+        "style": {
+            "formatter": "rustfmt with default settings",
+            "linter": "clippy with deny(warnings) in CI",
+            "naming": "snake_case for functions/variables, PascalCase for types",
+            "imports": "Group std, external crates, local modules",
+            "line_length": "100 characters max"
+        },
+        "error_handling": {
+            "strategy": "Use thiserror for custom errors, anyhow for application errors",
+            "propagation": "Use ? operator, avoid unwrap() in production code",
+            "logging": "Log errors at appropriate levels (error!, warn!, info!, debug!)",
+            "user_facing": "Provide helpful error messages with context"
+        },
+        "async_patterns": {
+            "runtime": "Use Tokio for all async operations",
+            "traits": "Implement Send + Sync for shared types",
+            "channels": "Use tokio::sync channels for communication",
+            "timeouts": "Always set timeouts for external calls",
+            "cancellation": "Use CancellationToken for graceful shutdown"
+        },
+        "testing": {
+            "coverage": "Minimum 90% test coverage for critical paths",
+            "types": "Unit tests for logic, integration tests for APIs",
+            "mocking": "Use mockall for external dependencies",
+            "containers": "Use testcontainers for database tests",
+            "benchmarks": "Criterion for performance-critical code"
+        },
+        "documentation": {
+            "code": "Document all public APIs with examples",
+            "readme": "Keep README.md updated with quick start",
+            "api": "Generate OpenAPI specs for REST APIs",
+            "architecture": "Maintain architecture decision records (ADRs)"
+        },
+        "security": {
+            "dependencies": "Regular cargo audit for vulnerabilities",
+            "secrets": "Never hardcode secrets, use environment variables",
+            "input_validation": "Validate all user inputs at boundaries",
+            "sanitization": "Sanitize data before logging or storage"
+        }
+    },
+    "project_structure": {
+        "workspace": {
+            "members": [
+                "ferragate-core",
+                "ferragate-cli", 
+                "ferragate-plugins",
+                "ferragate-sdk"
+            ]
+        },
+        "core_modules": {
+            "config": "Configuration management with validation",
+            "router": "HTTP routing engine with pattern matching",
+            "proxy": "Reverse proxy with connection pooling",
+            "plugins": "Plugin system with lifecycle hooks",
+            "auth": "Authentication and authorization",
+            "rate_limit": "Rate limiting with distributed counters",
+            "metrics": "Prometheus metrics and OpenTelemetry",
+            "storage": "Database and cache abstractions",
+            "server": "HTTP server with graceful shutdown"
+        }
+    },
+    "plugin_system": {
+        "architecture": "Trait-based plugins with compile-time safety",
+        "lifecycle_hooks": [
+            "on_request: Modify incoming requests",
+            "on_response: Modify outgoing responses", 
+            "on_error: Handle errors and failures",
+            "on_init: Plugin initialization",
+            "on_shutdown: Cleanup resources"
+        ],
+        "plugin_traits": {
+            "Plugin": "Base trait all plugins must implement",
+            "RequestPlugin": "For request modification",
+            "ResponsePlugin": "For response modification",
+            "AuthPlugin": "For authentication logic",
+            "RateLimitPlugin": "For rate limiting logic"
+        }
+    },
+    "database_schema": {
+        "tenants": "Tenant registration and configuration",
+        "routes": "Dynamic route definitions per tenant",
+        "api_keys": "API key storage with scopes",
+        "rate_limits": "Rate limiting rules and counters",
+        "audit_logs": "Administrative action tracking",
+        "plugin_configs": "Per-tenant plugin configurations"
+    },
+    "api_design": {
+        "rest_principles": "Follow RESTful design patterns",
+        "versioning": "Use /v1/ path prefix for API versioning",
+        "content_type": "JSON for request/response bodies",
+        "error_format": "RFC 7807 Problem Details for HTTP APIs",
+        "pagination": "Use limit/offset with total count",
+        "filtering": "Support query parameters for filtering",
+        "authentication": "Bearer token authentication",
+        "rate_limiting": "Include rate limit headers in responses"
+    },
+    "performance_requirements": {
+        "latency": "Sub-millisecond proxy latency (p99 < 1ms)",
+        "throughput": "Handle 100K+ requests per second per instance",
+        "memory": "Memory usage under 500MB for typical workloads",
+        "cpu": "Efficient CPU usage with async I/O",
+        "connections": "Support 10K+ concurrent connections",
+        "startup": "Fast startup time under 5 seconds"
+    },
+    "monitoring_and_observability": {
+        "metrics": {
+            "prometheus": "Standard Prometheus metrics format",
+            "custom_metrics": "Request count, latency, error rate per tenant",
+            "system_metrics": "CPU, memory, connection pool stats",
+            "business_metrics": "API usage, tenant activity"
+        },
+        "logging": {
+            "format": "Structured JSON logs with correlation IDs",
+            "levels": "Configurable log levels per component",
+            "access_logs": "HTTP access logs with timing information",
+            "audit_logs": "Administrative actions and security events"
+        },
+        "tracing": {
+            "distributed": "OpenTelemetry for request tracing",
+            "spans": "Detailed spans for plugin execution",
+            "correlation": "Request IDs for log correlation"
+        }
+    },
+    "security_guidelines": {
+        "authentication": "Support multiple auth methods (API key, JWT, OAuth2)",
+        "authorization": "Role-based access control for admin functions",
+        "encryption": "TLS 1.2+ for all communications",
+        "secrets": "Secure secret management and rotation",
+        "input_validation": "Strict input validation and sanitization",
+        "rate_limiting": "Configurable rate limits per tenant/endpoint",
+        "audit": "Comprehensive audit logging for compliance"
+    },
+    "deployment_guidelines": {
+        "docker": "Multi-stage builds for minimal image size",
+        "kubernetes": "Helm charts with configurable values",
+        "configuration": "Environment-based configuration",
+        "health_checks": "Liveness and readiness probes",
+        "scaling": "Horizontal pod autoscaling support",
+        "persistence": "StatefulSet for control plane if needed",
+        "networking": "Service mesh compatibility"
+    },
+    "development_workflow": {
+        "git_flow": "Feature branches with PR reviews",
+        "ci_cd": "GitHub Actions for build, test, security scan",
+        "releases": "Semantic versioning with automated releases",
+        "dependencies": "Regular dependency updates with Dependabot",
+        "security": "Regular security scans and vulnerability assessments"
+    },
+    "ai_development_context": {
+        "code_generation": {
+            "focus_areas": [
+                "Plugin implementations with proper error handling",
+                "Database migrations and schema definitions", 
+                "REST API endpoints with OpenAPI documentation",
+                "Configuration parsing and validation logic",
+                "Unit and integration tests with high coverage",
+                "CLI commands with proper argument handling",
+                "Performance benchmarks and load tests"
+            ],
+            "patterns_to_follow": [
+                "Use Result<T, E> for all fallible operations",
+                "Implement From/Into traits for type conversions",
+                "Use builder pattern for complex configuration",
+                "Implement Debug, Clone, Serialize/Deserialize where appropriate",
+                "Use Arc<T> and Mutex<T> for shared state",
+                "Prefer composition over inheritance",
+                "Use dependency injection for testability"
+            ]
+        },
+        "common_code_templates": {
+            "plugin_trait": "Standard plugin trait implementation",
+            "api_handler": "Axum handler with error handling and validation",
+            "database_model": "SQLx model with derive macros",
+            "config_struct": "Serde configuration struct with validation",
+            "cli_command": "Clap command with proper error handling",
+            "test_module": "Test module with setup and teardown",
+            "middleware": "Axum middleware with request/response processing"
+        },
+        "error_patterns": [
+            "Create custom error types with thiserror",
+            "Use anyhow for application-level errors",
+            "Implement proper error propagation chains", 
+            "Provide user-friendly error messages",
+            "Log errors with appropriate context"
+        ]
+    },
+    "documentation_reference": {
+        "roadmap": "See README.md for complete development roadmap and feature specifications",
+        "features": "Refer to README.md for detailed feature breakdown across all versions",
+        "milestones": "All milestone information is maintained in README.md"
+    }
+}
