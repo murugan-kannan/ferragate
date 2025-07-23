@@ -13,6 +13,7 @@
 
 FerraGate is a **modern, multi-tenant API Gateway** that rivals Kong and AWS API Gateway, built with:
 - ⚡ **Rust performance** - Handle millions of requests per second
+- 🔒 **HTTPS/TLS Termination** - Full SSL/TLS support with automatic certificate generation
 - 🏢 **Multi-tenant architecture** - Complete isolation between tenants
 - 🔐 **Zero-trust security** - Authentication, rate limiting, and compliance built-in
 - 🧩 **Plugin ecosystem** - Extensible with Rust SDK and WASM runtime
@@ -31,13 +32,21 @@ docker-compose up -d
 
 # Or install from source
 cargo install ferragate
-ferragate start --config config/gateway.toml
 
-# Test the gateway
-curl http://localhost:8080/health
+# Generate TLS certificates for HTTPS
+ferragate gen-certs --hostname localhost
+
+# Start with HTTPS enabled
+ferragate start --config gateway.toml
+
+# Test HTTP (redirects to HTTPS)
+curl http://localhost:3000/health
+
+# Test HTTPS
+curl -k https://localhost:8443/health
 ```
 
-**🔗 [Full Installation Guide](#-installation) | [Documentation](https://ferragate.dev/docs) | [API Reference](https://ferragate.dev/api)**
+**🔗 [Full Installation Guide](#-installation) | [HTTPS Setup Guide](HTTPS_GUIDE.md) | [Documentation](https://ferragate.dev/docs) | [API Reference](https://ferragate.dev/api)**
 
 ---
 
@@ -322,7 +331,7 @@ cd ferragate
 docker-compose up -d
 
 # Verify installation
-curl http://localhost:8080/health
+curl http://localhost:3000/health
 ```
 
 ### **Option 2: From Source**
@@ -359,7 +368,7 @@ cargo install ferragate
 ```toml
 [server]
 host = "0.0.0.0"
-port = 8080
+port = 3000
 workers = 4
 
 [[routes]]
@@ -776,9 +785,9 @@ net.core.netdev_max_backlog: 5000
 
 ```bash
 # Example load test results (projected v1.0)
-wrk -t12 -c400 -d30s --latency http://localhost:8080/api/simple
+wrk -t12 -c400 -d30s --latency http://localhost:3000/api/simple
 
-Running 30s test @ http://localhost:8080/api/simple
+Running 30s test @ http://localhost:3000/api/simple
   12 threads and 400 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
     Latency     1.2ms    0.8ms   8.5ms   89.23%
