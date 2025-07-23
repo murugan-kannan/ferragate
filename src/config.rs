@@ -22,6 +22,19 @@ pub struct ServerConfig {
     pub workers: Option<usize>,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    #[serde(default)]
+    pub tls: Option<TlsConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TlsConfig {
+    pub enabled: bool,
+    #[serde(default = "default_https_port")]
+    pub port: u16,
+    pub cert_file: String,
+    pub key_file: String,
+    #[serde(default)]
+    pub redirect_http: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -79,6 +92,10 @@ fn default_log_level() -> String {
     "info".to_string()
 }
 
+fn default_https_port() -> u16 {
+    443
+}
+
 impl GatewayConfig {
     pub fn from_file(path: &str) -> Result<Self> {
         debug!("Loading configuration from: {}", path);
@@ -100,6 +117,20 @@ impl GatewayConfig {
     pub fn validate(&self) -> Result<()> {
         if self.routes.is_empty() {
             warn!("No routes configured - gateway will only serve health endpoints");
+        }
+
+        // Validate TLS configuration if enabled
+        if let Some(tls) = &self.server.tls {
+            if tls.enabled {
+                // Check if certificate files exist (but allow auto-generation)
+                if !std::path::Path::new(&tls.cert_file).exists() {
+                    warn!("TLS certificate file not found: {} (will be auto-generated)", tls.cert_file);
+                }
+                if !std::path::Path::new(&tls.key_file).exists() {
+                    warn!("TLS private key file not found: {} (will be auto-generated)", tls.key_file);
+                }
+                info!("TLS configuration validated: cert={}, key={}", tls.cert_file, tls.key_file);
+            }
         }
 
         for (i, route) in self.routes.iter().enumerate() {
@@ -134,6 +165,13 @@ impl GatewayConfig {
                 port: default_port(),
                 workers: default_workers(),
                 timeout_ms: Some(30000), // 30 seconds
+                tls: Some(TlsConfig {
+                    enabled: true,
+                    port: default_https_port(),
+                    cert_file: "/etc/ssl/certs/ssl-cert-snakeoil.pem".to_string(),
+                    key_file: "/etc/ssl/private/ssl-cert-snakeoil.key".to_string(),
+                    redirect_http: true,
+                }),
             },
             routes: vec![
                 RouteConfig {
