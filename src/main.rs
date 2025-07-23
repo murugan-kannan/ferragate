@@ -1,20 +1,14 @@
 mod health;
 mod logging;
+mod config;
+mod proxy;
+mod cli;
+mod server;
+mod tls;
 
-use axum::{
-    routing::get,
-    Router,
-};
-use health::{health_handler, liveness_handler, readiness_handler, AppState};
-use tower_http::trace::TraceLayer;
-use tracing::{info, error};
+use cli::Cli;
 use logging::init_default_logging;
-
-// Simple root endpoint
-pub async fn root_handler() -> &'static str {
-    info!("Root endpoint accessed");
-    "Ferragate API is running!"
-}
+use tracing::error;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -24,39 +18,12 @@ async fn main() -> anyhow::Result<()> {
         return Err(e);
     }
 
-    info!("Starting Ferragate application");
+    // Parse CLI arguments and execute
+    let cli = Cli::parse_args();
     
-    let state = AppState::new();
-    info!("Application state initialized");
-
-    // Start background health check task
-    let health_check_state = state.clone();
-    tokio::spawn(async move {
-        info!("Starting background health check task");
-        health::health_check_background_task(health_check_state).await;
-    });
-
-    let app = Router::new()
-        .route("/", get(root_handler))
-        .route("/health", get(health_handler))
-        .route("/health/live", get(liveness_handler))
-        .route("/health/ready", get(readiness_handler))
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
-
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    
-    // Log startup information
-    info!("Ferragate server running on http://0.0.0.0:3000");
-    info!("Health endpoints:");
-    info!("   - Health: http://localhost:3000/health");
-    info!("   - Liveness: http://localhost:3000/health/live");
-    info!("   - Readiness: http://localhost:3000/health/ready");
-    info!("Background health checks running every 30 seconds");
-
-    if let Err(e) = axum::serve(listener, app).await {
-        error!("Server error: {}", e);
-        return Err(e.into());
+    if let Err(e) = cli.execute().await {
+        error!("Application error: {}", e);
+        std::process::exit(1);
     }
 
     Ok(())
