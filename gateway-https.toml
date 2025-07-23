@@ -3,19 +3,25 @@ host = "0.0.0.0"
 port = 3000
 timeout_ms = 30000
 
+# TLS/HTTPS Configuration
 [server.tls]
-enabled = false
-port = 443
+enabled = true
+port = 8443  # Use non-privileged port for testing
 cert_file = "certs/server.crt"
 key_file = "certs/server.key"
 redirect_http = true
 
+# Logging Configuration
+[logging]
+level = "info"
+json = false
+file = false
+
+# Example Routes
 [[routes]]
 path = "/get/*"
 upstream = "https://httpbin.org"
-methods = [
-    "GET",
-]
+methods = ["GET"]
 strip_path = true
 preserve_host = false
 timeout_ms = 30000
@@ -25,9 +31,7 @@ timeout_ms = 30000
 [[routes]]
 path = "/post/*"
 upstream = "https://httpbin.org"
-methods = [
-    "POST",
-]
+methods = ["POST"]
 strip_path = true
 preserve_host = false
 timeout_ms = 30000
@@ -37,9 +41,7 @@ timeout_ms = 30000
 [[routes]]
 path = "/json/*"
 upstream = "https://httpbin.org"
-methods = [
-    "GET",
-]
+methods = ["GET"]
 strip_path = true
 preserve_host = false
 timeout_ms = 30000
@@ -49,16 +51,9 @@ timeout_ms = 30000
 [[routes]]
 path = "/status/*"
 upstream = "https://httpbin.org"
-methods = [
-    "GET",
-]
+methods = ["GET"]
 strip_path = true
 preserve_host = false
 timeout_ms = 30000
 
 [routes.headers]
-
-[logging]
-level = "info"
-json = true
-file = true
