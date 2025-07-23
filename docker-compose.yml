@@ -6,6 +6,10 @@ services:
     environment:
       - RUST_LOG=info
       - LOG_DIR=/app/logs
+      - CONFIG_PATH=/app/gateway.toml
+    volumes:
+      - ./gateway.toml:/app/gateway.toml:ro
+      - ./logs:/app/logs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health/live"]
       interval: 30s
