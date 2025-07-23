@@ -1,6 +1,7 @@
 [package]
-name = "ferragate"
+name = "Ferragate"
 version = "0.1.0"
+description = "FerraGate - Enterprise-grade, high-performance API Gateway built in Rust with advanced load balancing, TLS/SSL termination, health monitoring, and real-time analytics"
 edition = "2021"
 rust-version = "1.80"
 
@@ -16,3 +17,31 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time"
 tracing-appender = "0.2"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["trace"] }
+# Reverse proxy dependencies
+hyper = { version = "1.0", features = ["full"] }
+hyper-util = { version = "0.1", features = ["full"] }
+http-body-util = "0.1"
+reqwest = { version = "0.11", features = ["json"] }
+toml = "0.8"
+clap = { version = "4.0", features = ["derive"] }
+url = "2.5"
+# TLS/SSL dependencies
+axum-server = { version = "0.6", features = ["tls-rustls"] }
+rustls = "0.22"
+rustls-pemfile = "2.0"
+tokio-rustls = "0.25"
+rcgen = "0.12"
+
+[dev-dependencies]
+axum-test = "15.0"
+testcontainers = "0.15"
+lazy_static = "1.4"
+env_logger = "0.10"
+
+[[bin]]
+name = "ferragate"
+path = "src/main.rs"
+
+[lib]
+name = "ferragate"
+path = "src/lib.rs"

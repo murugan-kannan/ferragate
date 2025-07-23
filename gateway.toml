@@ -1,0 +1,57 @@
+[server]
+host = "0.0.0.0"
+port = 3000
+timeout_ms = 30000
+
+[[routes]]
+path = "/get/*"
+upstream = "https://httpbin.org"
+methods = [
+    "GET",
+]
+strip_path = true
+preserve_host = false
+timeout_ms = 30000
+
+[routes.headers]
+
+[[routes]]
+path = "/post/*"
+upstream = "https://httpbin.org"
+methods = [
+    "POST",
+]
+strip_path = true
+preserve_host = false
+timeout_ms = 30000
+
+[routes.headers]
+
+[[routes]]
+path = "/json/*"
+upstream = "https://httpbin.org"
+methods = [
+    "GET",
+]
+strip_path = true
+preserve_host = false
+timeout_ms = 30000
+
+[routes.headers]
+
+[[routes]]
+path = "/status/*"
+upstream = "https://httpbin.org"
+methods = [
+    "GET",
+]
+strip_path = true
+preserve_host = false
+timeout_ms = 30000
+
+[routes.headers]
+
+[logging]
+level = "debug"
+json = false
+file = false
