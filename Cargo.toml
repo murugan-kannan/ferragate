@@ -1,43 +1,82 @@
 [package]
-name = "Ferragate"
+name = "ferragate"
 version = "0.1.0"
-description = "FerraGate - Enterprise-grade, high-performance API Gateway built in Rust with advanced load balancing, TLS/SSL termination, health monitoring, and real-time analytics"
+description = "Multi-tenant, high-performance API Gateway built in Rust - Secure, scalable, and developer-friendly"
+authors = ["Murugan Kannan <murugan@example.com>"]
+license = "MIT"
+repository = "https://github.com/murugan-kannan/ferragate"
+homepage = "https://github.com/murugan-kannan/ferragate"
+documentation = "https://docs.rs/ferragate"
+readme = "README.md"
+keywords = ["api-gateway", "proxy", "load-balancer", "tls", "rust"]
+categories = ["web-programming", "network-programming", "command-line-utilities"]
 edition = "2021"
 rust-version = "1.80"
+include = [
+    "src/**/*",
+    "Cargo.toml",
+    "README.md",
+    "LICENSE",
+    "gateway.toml",
+    "gateway-https.toml"
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-axum = "0.7"
-tokio = { version = "1.0", features = ["full"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-anyhow = "1.0"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time"] }
-tracing-appender = "0.2"
-tower = "0.4"
-tower-http = { version = "0.5", features = ["trace"] }
-# Reverse proxy dependencies
+# Web framework and HTTP handling
+axum = { version = "0.7", features = ["tracing"] }
+tower = { version = "0.4", features = ["util"] }
+tower-http = { version = "0.5", features = ["trace", "cors", "compression-gzip"] }
 hyper = { version = "1.0", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
-reqwest = { version = "0.11", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Serialization and configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 toml = "0.8"
-clap = { version = "4.0", features = ["derive"] }
+
+# CLI and utilities
+clap = { version = "4.0", features = ["derive", "env"] }
 url = "2.5"
-# TLS/SSL dependencies
-axum-server = { version = "0.6", features = ["tls-rustls"] }
-rustls = "0.22"
-rustls-pemfile = "2.0"
-tokio-rustls = "0.25"
-rcgen = "0.12"
+chrono = { version = "0.4", features = ["serde"] }
+anyhow = "1.0"
+
+# HTTP client for health checks and proxying
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "time", "ansi"] }
+tracing-appender = "0.2"
+
+# TLS/SSL support (optional feature)
+axum-server = { version = "0.6", features = ["tls-rustls"], optional = true }
+rustls = { version = "0.22", optional = true }
+rustls-pemfile = { version = "2.0", optional = true }
+tokio-rustls = { version = "0.25", optional = true }
+rcgen = { version = "0.12", optional = true }
 
 [dev-dependencies]
+# Testing framework
 axum-test = "15.0"
-env_logger = "0.10"
-tempfile = "3.0"
+tokio-test = "0.4"
 async-trait = "0.1"
 serial_test = "3.0"
+
+# Test utilities
+tempfile = "3.0"
+env_logger = "0.10"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Mock HTTP server for testing
+wiremock = "0.5"
 
 [[bin]]
 name = "ferragate"
@@ -46,3 +85,34 @@ path = "src/main.rs"
 [lib]
 name = "ferragate"
 path = "src/lib.rs"
+
+# Performance-optimized release profile for production
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Development profile with faster builds
+[profile.dev]
+opt-level = 0
+debug = true
+split-debuginfo = "unpacked"
+
+# Profile for benchmarking
+[profile.bench]
+opt-level = 3
+debug = false
+lto = true
+
+# Features for conditional compilation
+[features]
+default = ["tls", "metrics"]
+tls = ["axum-server/tls-rustls", "rustls", "rustls-pemfile", "tokio-rustls", "rcgen"]
+metrics = []
+docker = []
+
+# Workspace configuration (for future multi-crate setup)
+[workspace]
+resolver = "2"
