@@ -1,7 +1,5 @@
 use ferragate::config::GatewayConfig;
 
-mod common;
-
 #[tokio::test]
 async fn test_config_validation() {
     // Test valid config
@@ -26,7 +24,7 @@ async fn test_route_path_matching() {
 
     let route = RouteConfig {
         path: "/get/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec!["GET".to_string()],
         headers: HashMap::new(),
         strip_path: true,
@@ -53,7 +51,7 @@ async fn test_path_transformation() {
 
     let route = RouteConfig {
         path: "/status/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec![],
         headers: HashMap::new(),
         strip_path: true,
@@ -81,7 +79,7 @@ async fn test_httpbin_get_endpoint() {
 
     let route = RouteConfig {
         path: "/get/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec!["GET".to_string()],
         headers: HashMap::new(),
         strip_path: true,
@@ -107,7 +105,7 @@ async fn test_httpbin_post_endpoint() {
 
     let route = RouteConfig {
         path: "/post/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec!["POST".to_string()],
         headers: HashMap::new(),
         strip_path: true,
@@ -132,7 +130,7 @@ async fn test_httpbin_status_endpoint() {
 
     let route = RouteConfig {
         path: "/status/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec!["GET".to_string()],
         headers: HashMap::new(),
         strip_path: true,
@@ -158,7 +156,7 @@ async fn test_httpbin_json_endpoint() {
 
     let route = RouteConfig {
         path: "/json/*".to_string(),
-        upstream: common::HTTPBIN.base_url.clone(),
+        upstream: "http://httpbin.org".to_string(),
         methods: vec!["GET".to_string()],
         headers: HashMap::new(),
         strip_path: true,
@@ -183,7 +181,11 @@ async fn test_multiple_httpbin_routes() {
     // Find and test each route type
     let get_route = config.routes.iter().find(|r| r.path == "/get/*").unwrap();
     let post_route = config.routes.iter().find(|r| r.path == "/post/*").unwrap();
-    let status_route = config.routes.iter().find(|r| r.path == "/status/*").unwrap();
+    let status_route = config
+        .routes
+        .iter()
+        .find(|r| r.path == "/status/*")
+        .unwrap();
     let json_route = config.routes.iter().find(|r| r.path == "/json/*").unwrap();
 
     // All should point to httpbin (will be test container in tests)
@@ -191,7 +193,7 @@ async fn test_multiple_httpbin_routes() {
     assert!(!post_route.upstream.is_empty());
     assert!(!status_route.upstream.is_empty());
     assert!(!json_route.upstream.is_empty());
-    
+
     // All routes should point to the same upstream
     assert_eq!(get_route.upstream, post_route.upstream);
     assert_eq!(post_route.upstream, status_route.upstream);

@@ -1,8 +1,8 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use anyhow::{Result, Context};
-use tracing::{info, warn, debug};
+use tracing::{debug, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GatewayConfig {
@@ -99,18 +99,18 @@ fn default_https_port() -> u16 {
 impl GatewayConfig {
     pub fn from_file(path: &str) -> Result<Self> {
         debug!("Loading configuration from: {}", path);
-        
+
         let content = fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path))?;
-        
+
         let config: GatewayConfig = toml::from_str(&content)
             .with_context(|| format!("Failed to parse config file: {}", path))?;
-        
+
         info!("Configuration loaded successfully from: {}", path);
         debug!("Loaded config: {:#?}", config);
-        
+
         config.validate()?;
-        
+
         Ok(config)
     }
 
@@ -124,12 +124,21 @@ impl GatewayConfig {
             if tls.enabled {
                 // Check if certificate files exist (but allow auto-generation)
                 if !std::path::Path::new(&tls.cert_file).exists() {
-                    warn!("TLS certificate file not found: {} (will be auto-generated)", tls.cert_file);
+                    warn!(
+                        "TLS certificate file not found: {} (will be auto-generated)",
+                        tls.cert_file
+                    );
                 }
                 if !std::path::Path::new(&tls.key_file).exists() {
-                    warn!("TLS private key file not found: {} (will be auto-generated)", tls.key_file);
+                    warn!(
+                        "TLS private key file not found: {} (will be auto-generated)",
+                        tls.key_file
+                    );
                 }
-                info!("TLS configuration validated: cert={}, key={}", tls.cert_file, tls.key_file);
+                info!(
+                    "TLS configuration validated: cert={}, key={}",
+                    tls.cert_file, tls.key_file
+                );
             }
         }
 
@@ -140,18 +149,28 @@ impl GatewayConfig {
             }
 
             // Validate upstream URL
-            let _url = url::Url::parse(&route.upstream)
-                .with_context(|| format!("Invalid upstream URL in route {}: {}", i, route.upstream))?;
+            let _url = url::Url::parse(&route.upstream).with_context(|| {
+                format!("Invalid upstream URL in route {}: {}", i, route.upstream)
+            })?;
 
             // Validate methods
             for method in &route.methods {
                 match method.to_uppercase().as_str() {
-                    "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" => {},
-                    _ => return Err(anyhow::anyhow!("Invalid HTTP method in route {}: {}", i, method)),
+                    "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" => {}
+                    _ => {
+                        return Err(anyhow::anyhow!(
+                            "Invalid HTTP method in route {}: {}",
+                            i,
+                            method
+                        ))
+                    }
                 }
             }
 
-            debug!("Route {} validated: {} -> {}", i, route.path, route.upstream);
+            debug!(
+                "Route {} validated: {} -> {}",
+                i, route.path, route.upstream
+            );
         }
 
         info!("Configuration validation successful");
@@ -209,7 +228,7 @@ impl GatewayConfig {
                     strip_path: true,
                     preserve_host: false,
                     timeout_ms: Some(30000),
-                }
+                },
             ],
             logging: LoggingConfig::default(),
         }
@@ -217,12 +236,12 @@ impl GatewayConfig {
 
     pub fn save_example(path: &str) -> Result<()> {
         let config = Self::default_config();
-        let content = toml::to_string_pretty(&config)
-            .context("Failed to serialize example config")?;
-        
+        let content =
+            toml::to_string_pretty(&config).context("Failed to serialize example config")?;
+
         fs::write(path, content)
             .with_context(|| format!("Failed to write example config to: {}", path))?;
-        
+
         info!("Example configuration saved to: {}", path);
         Ok(())
     }
@@ -242,7 +261,9 @@ impl RouteConfig {
         if self.methods.is_empty() {
             return true; // No method restriction
         }
-        self.methods.iter().any(|m| m.to_uppercase() == method.to_uppercase())
+        self.methods
+            .iter()
+            .any(|m| m.to_uppercase() == method.to_uppercase())
     }
 
     pub fn transform_path(&self, original_path: &str) -> String {

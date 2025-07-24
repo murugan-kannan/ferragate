@@ -34,9 +34,10 @@ rcgen = "0.12"
 
 [dev-dependencies]
 axum-test = "15.0"
-testcontainers = "0.15"
-lazy_static = "1.4"
 env_logger = "0.10"
+tempfile = "3.0"
+async-trait = "0.1"
+serial_test = "3.0"
 
 [[bin]]
 name = "ferragate"
