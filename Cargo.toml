@@ -77,7 +77,7 @@ serial_test = "3.0"
 
 # Test utilities
 tempfile = "3.0"
-env_logger = "0.10"
+env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 # Mock HTTP server for testing
