@@ -560,8 +560,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
     let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
     if result != 0 {
         return Err(FerragateError::server(format!(
-            "Failed to send SIGTERM to process {}",
-            pid
+            "Failed to send SIGTERM to process {pid}"
         )));
     }
 
