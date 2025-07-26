@@ -59,7 +59,8 @@ fn create_proxy_state() -> ProxyState {
 fn benchmark_route_finding(c: &mut Criterion) {
     let proxy_state = create_proxy_state();
 
-    let test_paths = ["/api/v1/users",
+    let test_paths = [
+        "/api/v1/users",
         "/api/v1/users/123",
         "/api/v1/users/123/profile",
         "/api/v2/orders",
@@ -67,7 +68,8 @@ fn benchmark_route_finding(c: &mut Criterion) {
         "/health",
         "/static/css/style.css",
         "/static/js/app.js",
-        "/nonexistent/path"];
+        "/nonexistent/path",
+    ];
 
     c.bench_function("find_matching_route_single", |b| {
         b.iter(|| {

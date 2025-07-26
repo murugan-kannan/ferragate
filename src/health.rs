@@ -377,10 +377,7 @@ pub async fn health_check_background_task(state: AppState) {
                 };
 
                 let (status, message) = if is_healthy {
-                    (
-                        HealthStatus::Healthy,
-                        Some(format!("{name} check passed")),
-                    )
+                    (HealthStatus::Healthy, Some(format!("{name} check passed")))
                 } else {
                     (
                         HealthStatus::Unhealthy,

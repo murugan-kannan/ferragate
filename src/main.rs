@@ -172,7 +172,7 @@ mod tests {
 
         // Test that main function exists with correct signature
         let main_fn = main;
-        // Function pointers are never null, just verify it exists  
+        // Function pointers are never null, just verify it exists
         let _ = main_fn;
     }
 
@@ -277,7 +277,6 @@ mod tests {
 
         // Test TLS module
         // TLS module is imported, test passes if compilation succeeds
-
     }
 
     #[tokio::test]
@@ -456,7 +455,6 @@ mod tests {
         // Test anyhow Result types that run_app returns
         let _success: FerragateResult<()> = Ok(());
         let _error: FerragateResult<()> = Err(FerragateError::server("test"));
-
     }
 
     #[test]
@@ -533,7 +531,6 @@ mod tests {
         // Just check that the type exists and is accessible
         // Don't actually call parse_args() as it reads from process args
         // and might trigger --help output in test environment
-
     }
 
     #[test]
@@ -577,7 +574,6 @@ mod tests {
 
         // Test that proxy state can be created
         let _proxy_state = ProxyState::new(config);
-
     }
 
     #[test]
@@ -660,7 +656,6 @@ mod tests {
 
         // Test anyhow Result type
         let _result: FerragateResult<()> = Ok(());
-
     }
 
     #[test]

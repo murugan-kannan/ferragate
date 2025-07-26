@@ -101,16 +101,12 @@ pub fn create_self_signed_cert(
         .serialize_pem()
         .map_err(|e| FerragateError::tls(format!("Failed to serialize certificate: {e}")))?;
     fs::write(cert_path, cert_pem).map_err(|e| {
-        FerragateError::tls(format!(
-            "Failed to write certificate to '{cert_path}': {e}"
-        ))
+        FerragateError::tls(format!("Failed to write certificate to '{cert_path}': {e}"))
     })?;
 
     // Write private key to file
     fs::write(key_path, cert.serialize_private_key_pem()).map_err(|e| {
-        FerragateError::tls(format!(
-            "Failed to write private key to '{key_path}': {e}"
-        ))
+        FerragateError::tls(format!("Failed to write private key to '{key_path}': {e}"))
     })?;
 
     info!("Self-signed certificate generated successfully");

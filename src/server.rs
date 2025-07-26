@@ -1239,7 +1239,6 @@ mod tests {
         let proxy_state = ProxyState::new(config.clone());
         let health_state = AppState::new();
         let _app = create_router_with_states(proxy_state, health_state);
-
     }
 
     #[tokio::test]
@@ -1259,7 +1258,6 @@ mod tests {
         let proxy_state = ProxyState::new(config.clone());
         let health_state = AppState::new();
         let _app = create_router_with_states(proxy_state, health_state);
-
     }
 
     #[test]
