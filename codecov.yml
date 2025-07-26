@@ -1,0 +1,27 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        threshold: 2%
+        base: auto
+    patch:
+      default:
+        target: 70%
+        threshold: 5%
+
+comment:
+  layout: "reach,diff,flags,tree,reach"
+  behavior: default
+  require_changes: false
+
+ignore:
+  - "benches/"
+  - "target/"
+  - "tests/"
+  - "examples/"
+
+flags:
+  unittests:
+    paths:
+      - src/

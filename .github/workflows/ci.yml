@@ -165,12 +165,46 @@ jobs:
 
       - name: Generate code coverage
         run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+        env:
+          RUST_BACKTRACE: 1
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+      - name: Debug coverage file
+        run: |
+          echo "Coverage file info:"
+          ls -la lcov.info || echo "lcov.info not found"
+          echo "First 10 lines of coverage file:"
+          head -10 lcov.info || echo "Cannot read lcov.info"
+          echo "Coverage file size:"
+          wc -l lcov.info || echo "Cannot count lines in lcov.info"
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
         with:
           files: lcov.info
-          fail_ci_if_error: true
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: unittests
+          name: codecov-umbrella
+
+      - name: Upload to Codecov using bash uploader (fallback)
+        if: failure()
+        run: |
+          if [ -n "${{ secrets.CODECOV_TOKEN }}" ]; then
+            curl -Os https://uploader.codecov.io/latest/linux/codecov
+            chmod +x codecov
+            ./codecov -f lcov.info -t ${{ secrets.CODECOV_TOKEN }}
+          else
+            echo "CODECOV_TOKEN not available, skipping fallback upload"
+          fi
+
+      - name: Upload coverage artifact (fallback)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: lcov.info
+          retention-days: 5
 
   docs:
     name: Documentation

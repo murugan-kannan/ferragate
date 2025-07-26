@@ -6,3 +6,24 @@
 
 # Environment files
 .env
+
+# Coverage files
+lcov.info
+*.profraw
+*.profdata
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+
+# Docker
+.dockerignore.bak
