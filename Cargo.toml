@@ -2,11 +2,10 @@
 name = "ferragate"
 version = "0.1.0"
 description = "Multi-tenant, high-performance API Gateway built in Rust - Secure, scalable, and developer-friendly"
-authors = ["Murugan Kannan <murugan@example.com>"]
+authors = ["Murugan Kannan <murugan.kannan@runeazy.com>"]
 license = "MIT"
 repository = "https://github.com/murugan-kannan/ferragate"
 homepage = "https://github.com/murugan-kannan/ferragate"
-documentation = "https://docs.rs/ferragate"
 readme = "README.md"
 keywords = ["api-gateway", "proxy", "load-balancer", "tls", "rust"]
 categories = ["web-programming", "network-programming", "command-line-utilities"]
