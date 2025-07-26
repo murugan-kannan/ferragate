@@ -129,7 +129,7 @@ fn find_route_for_request<'a>(
 /// Build the target URL for upstream forwarding
 fn build_target_url(route: &RouteConfig, path: &str, query: &str) -> String {
     let target_path = route.transform_path(path);
-    let mut target_url = format!("{}{}", route.upstream, target_path);
+    let mut target_url = format!("{0}{target_path}", route.upstream);
 
     if !query.is_empty() {
         target_url.push('?');
