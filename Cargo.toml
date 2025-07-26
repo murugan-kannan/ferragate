@@ -81,7 +81,7 @@ env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 # Mock HTTP server for testing
-wiremock = "0.5"
+wiremock = "0.6"
 
 [[bin]]
 name = "ferragate"
