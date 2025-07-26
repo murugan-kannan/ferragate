@@ -141,17 +141,19 @@ fn default_https_port() -> u16 {
 
 impl GatewayConfig {
     /// Load configuration from a TOML file
-    /// 
+    ///
     /// Reads and parses a TOML configuration file, validates the configuration,
     /// and returns a GatewayConfig instance.
     pub fn from_file(path: &str) -> FerragateResult<Self> {
         info!("Loading configuration from: {}", path);
 
-        let content = fs::read_to_string(path)
-            .map_err(|e| FerragateError::config(format!("Failed to read config file '{}': {}", path, e)))?;
+        let content = fs::read_to_string(path).map_err(|e| {
+            FerragateError::config(format!("Failed to read config file '{}': {}", path, e))
+        })?;
 
-        let config: GatewayConfig = toml::from_str(&content)
-            .map_err(|e| FerragateError::config(format!("Failed to parse config file '{}': {}", path, e)))?;
+        let config: GatewayConfig = toml::from_str(&content).map_err(|e| {
+            FerragateError::config(format!("Failed to parse config file '{}': {}", path, e))
+        })?;
 
         info!("{} from: {}", LOG_CONFIG_LOADED, path);
         debug!("Loaded config: {:#?}", config);
@@ -162,7 +164,7 @@ impl GatewayConfig {
     }
 
     /// Validate the configuration
-    /// 
+    ///
     /// Performs comprehensive validation of the configuration including
     /// route validation, TLS setup, and basic sanity checks.
     pub fn validate(&self) -> FerragateResult<()> {
@@ -195,7 +197,8 @@ impl GatewayConfig {
 
         // Validate each route
         for (i, route) in self.routes.iter().enumerate() {
-            route.validate()
+            route
+                .validate()
                 .map_err(|e| FerragateError::config(format!("Route {}: {}", i, e)))?;
         }
 
@@ -273,7 +276,7 @@ impl GatewayConfig {
 
 impl RouteConfig {
     /// Check if this route matches the given path
-    /// 
+    ///
     /// Supports wildcard matching with "/*" suffix for prefix matching.
     /// Returns true if the path matches this route's pattern.
     pub fn matches_path(&self, path: &str) -> bool {
@@ -286,7 +289,7 @@ impl RouteConfig {
     }
 
     /// Check if this route allows the given HTTP method
-    /// 
+    ///
     /// Returns true if:
     /// - No methods are specified (allows all methods)
     /// - The method is explicitly listed in allowed methods
@@ -300,7 +303,7 @@ impl RouteConfig {
     }
 
     /// Transform the original request path for upstream forwarding
-    /// 
+    ///
     /// If `strip_path` is enabled and the route uses wildcard matching,
     /// the matched prefix will be removed from the path before forwarding.
     pub fn transform_path(&self, original_path: &str) -> String {
@@ -326,7 +329,7 @@ impl RouteConfig {
     }
 
     /// Validate this route configuration
-    /// 
+    ///
     /// Checks that the route has valid path, upstream URL, and HTTP methods.
     pub fn validate(&self) -> FerragateResult<()> {
         // Validate path
@@ -335,14 +338,20 @@ impl RouteConfig {
         }
 
         // Validate upstream URL
-        url::Url::parse(&self.upstream)
-            .map_err(|e| FerragateError::validation(format!("Invalid upstream URL '{}': {}", self.upstream, e)))?;
+        url::Url::parse(&self.upstream).map_err(|e| {
+            FerragateError::validation(format!("Invalid upstream URL '{}': {}", self.upstream, e))
+        })?;
 
         // Validate methods
         for method in &self.methods {
             match method.to_uppercase().as_str() {
                 "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" => {}
-                _ => return Err(FerragateError::validation(format!("Invalid HTTP method: {}", method))),
+                _ => {
+                    return Err(FerragateError::validation(format!(
+                        "Invalid HTTP method: {}",
+                        method
+                    )))
+                }
             }
         }
 
@@ -350,7 +359,7 @@ impl RouteConfig {
     }
 
     /// Get the effective timeout for this route
-    /// 
+    ///
     /// Returns the route-specific timeout if set, otherwise the provided default.
     pub fn effective_timeout(&self, default_timeout_ms: u64) -> u64 {
         self.timeout_ms.unwrap_or(default_timeout_ms)
@@ -432,7 +441,10 @@ mod tests {
         // Should return server default timeout
         assert_eq!(route.effective_timeout(30000), 30000);
         assert_eq!(route.effective_timeout(15000), 15000);
-        assert_eq!(route.effective_timeout(DEFAULT_TIMEOUT_MS), DEFAULT_TIMEOUT_MS);
+        assert_eq!(
+            route.effective_timeout(DEFAULT_TIMEOUT_MS),
+            DEFAULT_TIMEOUT_MS
+        );
     }
 
     #[test]

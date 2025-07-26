@@ -5,11 +5,11 @@ use axum::{
     Router,
 };
 use std::net::SocketAddr;
-use tower_http::trace::TraceLayer;
-use tracing::{error, info, warn};
+use std::path::Path;
 use tokio::signal;
 use tokio_util::sync::CancellationToken;
-use std::path::Path;
+use tower_http::trace::TraceLayer;
+use tracing::{error, info, warn};
 
 #[cfg_attr(not(test), allow(unused_imports))]
 use crate::config::{GatewayConfig, LoggingConfig, RouteConfig, ServerConfig};
@@ -30,24 +30,30 @@ fn write_pid_file(path: &str) -> FerragateResult<()> {
 fn get_control_socket_path(config_path: &str) -> String {
     #[cfg(unix)]
     {
-        format!("{}{}.sock", CONTROL_SOCKET_PREFIX,
-            config_path.replace(['/', '\\', '.'], "_"))
+        format!(
+            "{}{}.sock",
+            CONTROL_SOCKET_PREFIX,
+            config_path.replace(['/', '\\', '.'], "_")
+        )
     }
     #[cfg(windows)]
     {
         // On Windows, we'll use a named pipe approach
-        format!("{}{}", CONTROL_SOCKET_PREFIX,
-            config_path.replace(['/', '\\', '.', ':'], "_"))
+        format!(
+            "{}{}",
+            CONTROL_SOCKET_PREFIX,
+            config_path.replace(['/', '\\', '.', ':'], "_")
+        )
     }
 }
 
 #[cfg(unix)]
 async fn start_control_socket_listener(
-    socket_path: String, 
-    shutdown_token: CancellationToken
+    socket_path: String,
+    shutdown_token: CancellationToken,
 ) -> FerragateResult<()> {
-    use tokio::net::UnixListener;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixListener;
 
     // Remove existing socket file if it exists
     if Path::new(&socket_path).exists() {
@@ -67,7 +73,7 @@ async fn start_control_socket_listener(
                 match accept_result {
                     Ok((mut stream, _)) => {
                         info!("Received control connection");
-                        
+
                         let shutdown_token_clone = shutdown_token.clone();
                         tokio::spawn(async move {
                             let mut buffer = [0u8; CONTROL_SOCKET_BUFFER_SIZE];
@@ -75,7 +81,7 @@ async fn start_control_socket_listener(
                                 Ok(n) => {
                                     let command = String::from_utf8_lossy(&buffer[..n]);
                                     let command = command.trim();
-                                    
+
                                     if command == "shutdown" {
                                         info!("Received shutdown command via control socket");
                                         let _ = stream.write_all(b"OK: Shutdown initiated\n").await;
@@ -109,8 +115,8 @@ async fn start_control_socket_listener(
 
 #[cfg(windows)]
 async fn start_control_socket_listener(
-    _socket_path: String, 
-    shutdown_token: CancellationToken
+    _socket_path: String,
+    shutdown_token: CancellationToken,
 ) -> FerragateResult<()> {
     // For Windows, we'll use a simpler file-based approach for now
     // This could be enhanced with named pipes in the future
@@ -420,8 +426,14 @@ fn log_health_endpoints(addr: &SocketAddr, is_https: bool) {
     let protocol = if is_https { "https" } else { "http" };
     info!("🏥 Health endpoints:");
     info!("   - Health: {}://{}{}", protocol, addr, HEALTH_ENDPOINT);
-    info!("   - Liveness: {}://{}{}", protocol, addr, LIVENESS_ENDPOINT);
-    info!("   - Readiness: {}://{}{}", protocol, addr, READINESS_ENDPOINT);
+    info!(
+        "   - Liveness: {}://{}{}",
+        protocol, addr, LIVENESS_ENDPOINT
+    );
+    info!(
+        "   - Readiness: {}://{}{}",
+        protocol, addr, READINESS_ENDPOINT
+    );
     info!("🔧 Background health checks running every 30 seconds");
 }
 
@@ -1181,10 +1193,10 @@ pub async fn stop_server(config_path: Option<&str>, force: bool) -> FerragateRes
     info!("Attempting to stop FerraGate server...");
 
     let config_str = config_path.unwrap_or("gateway.toml");
-    
+
     // Try to find the PID file first
     let pid_file = format!("{}.pid", config_str);
-    
+
     if !Path::new(&pid_file).exists() {
         info!("No PID file found. Server might not be running.");
         return Ok(());
@@ -1192,13 +1204,13 @@ pub async fn stop_server(config_path: Option<&str>, force: bool) -> FerragateRes
 
     // Try control socket communication first
     let socket_path = get_control_socket_path(config_str);
-    
+
     #[cfg(unix)]
     {
         if let Ok(()) = send_shutdown_command(&socket_path, force).await {
             // Wait a moment for graceful shutdown
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            
+
             // Check if the server actually stopped by checking PID file
             if !Path::new(&pid_file).exists() {
                 info!("✅ FerraGate server stopped gracefully!");
@@ -1214,54 +1226,59 @@ pub async fn stop_server(config_path: Option<&str>, force: bool) -> FerragateRes
 
 #[cfg(unix)]
 async fn send_shutdown_command(socket_path: &str, _force: bool) -> FerragateResult<()> {
-    use tokio::net::UnixStream;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixStream;
 
     // Try to connect to control socket
     let mut stream = UnixStream::connect(socket_path).await?;
-    
+
     // Send shutdown command
     stream.write_all(b"shutdown").await?;
-    
+
     // Read response
     let mut buffer = [0u8; CONTROL_SOCKET_BUFFER_SIZE];
     let n = stream.read(&mut buffer).await?;
     let response = String::from_utf8_lossy(&buffer[..n]);
-    
+
     if response.starts_with("OK:") {
         info!("Shutdown command sent successfully: {}", response.trim());
         Ok(())
     } else {
-        Err(FerragateError::server(format!("Unexpected response: {}", response.trim())))
+        Err(FerragateError::server(format!(
+            "Unexpected response: {}",
+            response.trim()
+        )))
     }
 }
 
 #[cfg(windows)]
 async fn send_shutdown_command(_socket_path: &str, _force: bool) -> FerragateResult<()> {
     // For Windows, we don't have Unix sockets, so we'll fall back to PID-based shutdown
-    Err(FerragateError::server("Control socket not supported on Windows"))
+    Err(FerragateError::server(
+        "Control socket not supported on Windows",
+    ))
 }
 
 async fn stop_server_by_pid(pid_file: &str, force: bool) -> FerragateResult<()> {
     use std::fs;
-    
+
     if let Ok(pid_content) = fs::read_to_string(pid_file) {
         if let Ok(pid) = pid_content.trim().parse::<u32>() {
             info!("Found PID file with process ID: {}", pid);
-            
+
             // Use a more robust approach: just send signals and let the server handle cleanup
             #[cfg(unix)]
             {
                 return stop_unix_process(pid, force, pid_file).await;
             }
-            
+
             #[cfg(windows)]
             {
                 return stop_windows_process(pid, force, pid_file).await;
             }
         }
     }
-    
+
     Err(FerragateError::server("Could not read or parse PID file"))
 }
 
@@ -1274,7 +1291,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
         let _ = std::fs::remove_file(pid_file);
         return Ok(());
     }
-    
+
     if force {
         info!("Force stopping process {}...", pid);
         let result = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
@@ -1283,23 +1300,29 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
             info!("✅ FerraGate server force-stopped successfully!");
             return Ok(());
         } else {
-            return Err(FerragateError::server(format!("Failed to force stop process {}", pid)));
+            return Err(FerragateError::server(format!(
+                "Failed to force stop process {}",
+                pid
+            )));
         }
     }
-    
+
     // Graceful shutdown: Send SIGTERM first
     info!("Sending SIGTERM to process {}...", pid);
     let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
     if result != 0 {
-        return Err(FerragateError::server(format!("Failed to send SIGTERM to process {}", pid)));
+        return Err(FerragateError::server(format!(
+            "Failed to send SIGTERM to process {}",
+            pid
+        )));
     }
-    
+
     info!("SIGTERM sent successfully, waiting for graceful shutdown...");
-    
+
     // Wait for graceful shutdown with timeout
     let timeout_duration = std::time::Duration::from_secs(10);
     let start_time = std::time::Instant::now();
-    
+
     while start_time.elapsed() < timeout_duration {
         // Check if process is still running
         let check_result = unsafe { libc::kill(pid as i32, 0) };
@@ -1309,14 +1332,14 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
             info!("✅ FerraGate server stopped gracefully!");
             return Ok(());
         }
-        
+
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
-    
+
     // If we reach here, graceful shutdown timed out
     warn!("Graceful shutdown timed out, sending SIGKILL...");
     let _ = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
-    
+
     let _ = std::fs::remove_file(pid_file);
     info!("✅ FerraGate server stopped (forced after timeout)!");
     Ok(())
@@ -1325,13 +1348,13 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
 #[cfg(windows)]
 async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> FerragateResult<()> {
     use std::process::Command;
-    
+
     if force {
         info!("Force stopping process {}...", pid);
         let result = Command::new("taskkill")
             .args(["/F", "/PID", &pid.to_string()])
             .output();
-        
+
         match result {
             Ok(output) if output.status.success() => {
                 let _ = std::fs::remove_file(pid_file);
@@ -1339,36 +1362,40 @@ async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> Ferragat
                 return Ok(());
             }
             _ => {
-                return Err(FerragateError::server(format!("Failed to force stop process {}", pid)));
+                return Err(FerragateError::server(format!(
+                    "Failed to force stop process {}",
+                    pid
+                )));
             }
         }
     }
-    
+
     // Graceful shutdown on Windows (fallback to force stop after timeout)
     info!("Stopping process {} gracefully...", pid);
     let result = Command::new("taskkill")
         .args(["/PID", &pid.to_string()])
         .output();
-    
+
     match result {
         Ok(output) if output.status.success() => {
             info!("Stop signal sent successfully, waiting for graceful shutdown...");
-            
+
             // Wait for graceful shutdown with timeout
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-            
+
             // Force stop after timeout
             warn!("Windows graceful shutdown timeout, force stopping...");
             let _ = Command::new("taskkill")
                 .args(["/F", "/PID", &pid.to_string()])
                 .output();
-            
+
             let _ = std::fs::remove_file(pid_file);
             info!("✅ FerraGate server stopped!");
             Ok(())
         }
-        _ => {
-            Err(FerragateError::server(format!("Failed to send stop signal to process {}", pid)))
-        }
+        _ => Err(FerragateError::server(format!(
+            "Failed to send stop signal to process {}",
+            pid
+        ))),
     }
 }

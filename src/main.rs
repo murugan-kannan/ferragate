@@ -15,7 +15,7 @@ use tracing::{error, info};
 use crate::error::FerragateResult;
 
 /// Main application entry point
-/// 
+///
 /// Initializes logging, parses CLI arguments, and executes the requested command.
 /// Returns early on any initialization errors.
 pub async fn run_app() -> FerragateResult<()> {
@@ -33,7 +33,7 @@ pub async fn run_app() -> FerragateResult<()> {
 }
 
 /// Application main function
-/// 
+///
 /// Sets up the Tokio async runtime and handles top-level error reporting.
 /// Exits with code 1 on any application errors.
 #[tokio::main]
@@ -48,6 +48,7 @@ async fn main() -> FerragateResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::FerragateError;
     use std::env;
     use std::ffi::OsString;
     use std::sync::Once;
@@ -404,7 +405,8 @@ mod tests {
         // We can't actually call main() but we can test its error handling logic
 
         // Simulate an error result like run_app() might return
-        let simulated_error: FerragateResult<()> = Err(FerragateError::server("Simulated app error"));
+        let simulated_error: FerragateResult<()> =
+            Err(FerragateError::server("Simulated app error"));
 
         // Test the error handling pattern from main()
         match simulated_error {
@@ -722,7 +724,8 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
 
         // Test the error handling pattern used in main()
-        let mock_app_result: FerragateResult<()> = Err(FerragateError::server("Test application error"));
+        let mock_app_result: FerragateResult<()> =
+            Err(FerragateError::server("Test application error"));
 
         rt.block_on(async {
             match mock_app_result {

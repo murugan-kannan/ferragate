@@ -1,13 +1,13 @@
 use std::env;
 use tracing::info;
-use tracing_subscriber::{fmt::time::UtcTime, EnvFilter};
 use tracing_appender::{non_blocking, rolling};
+use tracing_subscriber::{fmt::time::UtcTime, EnvFilter};
 
 use crate::constants::*;
 use crate::error::{FerragateError, FerragateResult};
 
 /// Configuration for the Ferragate logging system
-/// 
+///
 /// Provides comprehensive logging configuration including level control,
 /// output formatting, and file logging options.
 #[derive(Debug, Clone)]
@@ -49,21 +49,28 @@ fn parse_env_bool(var_name: &str, default: bool) -> bool {
 }
 
 /// Initialize the logging system with the given configuration
-/// 
+///
 /// Sets up tracing subscriber with the specified level, format, and output options.
 /// Handles cases where a global subscriber is already initialized (common in tests).
 pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
     // Create the log directory if it doesn't exist and file logging is enabled
     if config.log_to_file {
-        std::fs::create_dir_all(&config.log_dir)
-            .map_err(|e| FerragateError::io(format!("Failed to create log directory '{}': {}", config.log_dir, e)))?;
+        std::fs::create_dir_all(&config.log_dir).map_err(|e| {
+            FerragateError::io(format!(
+                "Failed to create log directory '{}': {}",
+                config.log_dir, e
+            ))
+        })?;
     }
 
     // Create environment filter from configuration
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&config.level))
         .unwrap_or_else(|_| {
-            eprintln!("Warning: Invalid log level '{}', using 'info'", config.level);
+            eprintln!(
+                "Warning: Invalid log level '{}', using 'info'",
+                config.level
+            );
             EnvFilter::new("info")
         });
 
@@ -72,11 +79,11 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
         // Create file appender with daily rotation using the prefix
         let file_appender = rolling::daily(&config.log_dir, &config.log_file_prefix);
         let (non_blocking_appender, _guard) = non_blocking(file_appender);
-        
+
         // We need to keep the guard alive for the lifetime of the program
         // In a real application, you'd want to store this somewhere
         std::mem::forget(_guard);
-        
+
         if config.json_format {
             // For JSON format, we can only do file OR console due to type constraints
             // Prioritize file logging for JSON format
@@ -93,10 +100,10 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
         } else {
             // For non-JSON format, we can use a tee writer to write to both
             use tracing_subscriber::fmt::writer::MakeWriterExt;
-            
+
             // Create a tee writer that writes to both stdout and file
             let tee_writer = non_blocking_appender.and(std::io::stdout);
-            
+
             tracing_subscriber::fmt()
                 .with_timer(UtcTime::rfc_3339())
                 .with_target(true)
@@ -145,7 +152,10 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
                 // Subscriber already set, which is okay for tests
                 eprintln!("Warning: Global subscriber already set: {}", e);
             } else {
-                return Err(FerragateError::config(format!("Failed to initialize logging: {}", e)));
+                return Err(FerragateError::config(format!(
+                    "Failed to initialize logging: {}",
+                    e
+                )));
             }
         }
     }
@@ -154,7 +164,7 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
 }
 
 /// Initialize logging with default configuration
-/// 
+///
 /// Convenience function that creates a default logging configuration and initializes the system.
 /// This is the function used by the main application for simple setup.
 pub fn init_default_logging() -> FerragateResult<()> {

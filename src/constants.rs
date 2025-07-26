@@ -1,5 +1,5 @@
 /// Application constants for Ferragate API Gateway
-/// 
+///
 /// This module contains all the magic numbers, default values, and string constants
 /// used throughout the application to improve maintainability and consistency.
 
@@ -42,7 +42,7 @@ pub const DEFAULT_HOSTNAME: &str = "localhost";
 // HTTP headers that should not be forwarded to upstream
 pub const FILTERED_HEADERS: &[&str] = &[
     "connection",
-    "upgrade", 
+    "upgrade",
     "proxy-connection",
     "proxy-authenticate",
     "proxy-authorization",

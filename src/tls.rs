@@ -5,14 +5,14 @@ use crate::constants::*;
 use crate::error::{FerragateError, FerragateResult};
 
 /// Load TLS configuration from certificate and key files
-/// 
+///
 /// Reads the certificate and private key files and creates a RustlsConfig
 /// that can be used with the Axum server for HTTPS support.
-/// 
+///
 /// # Arguments
 /// * `cert_file` - Path to the certificate file (PEM format)
 /// * `key_file` - Path to the private key file (PEM format)
-/// 
+///
 /// # Returns
 /// * `FerragateResult<RustlsConfig>` - TLS configuration on success, error on failure
 pub async fn load_tls_config(cert_file: &str, key_file: &str) -> FerragateResult<RustlsConfig> {
@@ -23,42 +23,54 @@ pub async fn load_tls_config(cert_file: &str, key_file: &str) -> FerragateResult
 
     // Validate that both files exist before attempting to load
     if !std::path::Path::new(cert_file).exists() {
-        return Err(FerragateError::tls(format!("Certificate file not found: {}", cert_file)));
+        return Err(FerragateError::tls(format!(
+            "Certificate file not found: {}",
+            cert_file
+        )));
     }
 
     if !std::path::Path::new(key_file).exists() {
-        return Err(FerragateError::tls(format!("Private key file not found: {}", key_file)));
+        return Err(FerragateError::tls(format!(
+            "Private key file not found: {}",
+            key_file
+        )));
     }
 
     let config = RustlsConfig::from_pem_file(cert_file, key_file)
         .await
-        .map_err(|e| FerragateError::tls(format!(
-            "Failed to load TLS configuration from cert: {}, key: {}: {}",
-            cert_file, key_file, e
-        )))?;
+        .map_err(|e| {
+            FerragateError::tls(format!(
+                "Failed to load TLS configuration from cert: {}, key: {}: {}",
+                cert_file, key_file, e
+            ))
+        })?;
 
     info!("{}", LOG_TLS_ENABLED);
     Ok(config)
 }
 
 /// Generate a self-signed certificate for development and testing
-/// 
+///
 /// Creates a self-signed X.509 certificate and private key for the given hostname.
 /// This is useful for development environments where you need HTTPS but don't have
 /// a certificate from a Certificate Authority.
-/// 
+///
 /// # Arguments
 /// * `cert_path` - Output path for the certificate file
 /// * `key_path` - Output path for the private key file
 /// * `hostname` - Hostname/domain name for the certificate
-/// 
+///
 /// # Returns
 /// * `Result<()>` - Success or error information
-/// 
+///
 /// # Security Note
 /// Self-signed certificates should only be used for development and testing.
 /// Production deployments should use certificates from a trusted CA.
-pub fn create_self_signed_cert(cert_path: &str, key_path: &str, hostname: &str) -> FerragateResult<()> {
+pub fn create_self_signed_cert(
+    cert_path: &str,
+    key_path: &str,
+    hostname: &str,
+) -> FerragateResult<()> {
     use rcgen::{Certificate, CertificateParams, DistinguishedName};
     use std::fs;
 
@@ -69,7 +81,7 @@ pub fn create_self_signed_cert(cert_path: &str, key_path: &str, hostname: &str) 
 
     // Create certificate parameters
     let mut params = CertificateParams::new(vec![hostname.to_string()]);
-    
+
     // Set up distinguished name
     params.distinguished_name = DistinguishedName::new();
     params
@@ -83,18 +95,28 @@ pub fn create_self_signed_cert(cert_path: &str, key_path: &str, hostname: &str) 
         .push(rcgen::DnType::CountryName, CERT_COUNTRY);
 
     // Generate the certificate
-    let cert = Certificate::from_params(params)
-        .map_err(|e| FerragateError::tls(format!("Failed to generate self-signed certificate: {}", e)))?;
+    let cert = Certificate::from_params(params).map_err(|e| {
+        FerragateError::tls(format!("Failed to generate self-signed certificate: {}", e))
+    })?;
 
     // Write certificate to file
-    let cert_pem = cert.serialize_pem()
+    let cert_pem = cert
+        .serialize_pem()
         .map_err(|e| FerragateError::tls(format!("Failed to serialize certificate: {}", e)))?;
-    fs::write(cert_path, cert_pem)
-        .map_err(|e| FerragateError::tls(format!("Failed to write certificate to '{}': {}", cert_path, e)))?;
+    fs::write(cert_path, cert_pem).map_err(|e| {
+        FerragateError::tls(format!(
+            "Failed to write certificate to '{}': {}",
+            cert_path, e
+        ))
+    })?;
 
     // Write private key to file
-    fs::write(key_path, cert.serialize_private_key_pem())
-        .map_err(|e| FerragateError::tls(format!("Failed to write private key to '{}': {}", key_path, e)))?;
+    fs::write(key_path, cert.serialize_private_key_pem()).map_err(|e| {
+        FerragateError::tls(format!(
+            "Failed to write private key to '{}': {}",
+            key_path, e
+        ))
+    })?;
 
     info!("Self-signed certificate generated successfully");
     info!("Certificate written to: {}", cert_path);

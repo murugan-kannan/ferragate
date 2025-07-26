@@ -7,7 +7,7 @@ use crate::constants::*;
 use crate::error::{FerragateError, FerragateResult};
 
 /// Ferragate API Gateway CLI
-/// 
+///
 /// A high-performance, multi-tenant API Gateway built in Rust.
 /// Provides secure, scalable routing and load balancing for your services.
 #[derive(Parser)]
@@ -79,7 +79,8 @@ pub enum Commands {
 
         /// Force stop (kill process immediately)
         #[arg(long, help = "Force immediate shutdown without graceful stop")]
-        force: bool,    },
+        force: bool,
+    },
 }
 
 impl Cli {
@@ -88,13 +89,11 @@ impl Cli {
     }
 
     /// Execute the CLI command
-    /// 
+    ///
     /// Dispatches to the appropriate handler function based on the command type.
     pub async fn execute(self) -> FerragateResult<()> {
         match self.command {
-            Commands::Start { config, host, port } => {
-                start_server(config, host, port).await
-            }
+            Commands::Start { config, host, port } => start_server(config, host, port).await,
             Commands::Validate { config } => validate_config(config),
             Commands::Init { output, force } => init_config(output, force),
             Commands::GenCerts {

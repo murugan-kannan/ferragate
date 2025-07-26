@@ -1,0 +1,30 @@
+# Rust formatting configuration (stable options only)
+# See: https://rust-lang.github.io/rustfmt/
+
+# Basic formatting
+edition = "2021"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+
+# Imports (stable options only)
+reorder_imports = true
+reorder_modules = true
+
+# Function formatting
+fn_params_layout = "Tall"
+
+# Misc stable options
+remove_nested_parens = true
+use_field_init_shorthand = false
+force_explicit_abi = true
+
+# Chain formatting
+chain_width = 60
+single_line_if_else_max_width = 50
+
+# Arrays and slices
+array_width = 60
+attr_fn_like_width = 70

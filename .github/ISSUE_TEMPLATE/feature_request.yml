@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest an idea for Ferragate
+title: '[Feature]: '
+labels: ['enhancement', 'triage']
+assignees:
+  - murugan-kannan
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide as much detail as possible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: I'm always frustrated when...
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear and concise description of what you want to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Describe alternatives you've considered
+      description: A clear and concise description of any alternative solutions or features you've considered.
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: categories
+    attributes:
+      label: Feature Categories
+      description: Which areas does this feature relate to? (Select all that apply)
+      options:
+        - label: Core API Gateway functionality
+        - label: Load balancing
+        - label: TLS/Security
+        - label: Configuration
+        - label: Monitoring/Metrics
+        - label: CLI interface
+        - label: Docker/Deployment
+        - label: Documentation
+        - label: Performance
+        - label: Other
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Add any other context, screenshots, or examples about the feature request here.

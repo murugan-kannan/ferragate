@@ -14,7 +14,7 @@ use crate::config::{GatewayConfig, RouteConfig};
 use crate::constants::*;
 
 /// State shared across all proxy handlers
-/// 
+///
 /// Contains the gateway configuration and HTTP client for making upstream requests.
 #[derive(Clone)]
 pub struct ProxyState {
@@ -26,12 +26,10 @@ pub struct ProxyState {
 
 impl ProxyState {
     /// Create a new ProxyState with the given configuration
-    /// 
+    ///
     /// Sets up an HTTP client with appropriate timeouts and connection pooling.
     pub fn new(config: GatewayConfig) -> Self {
-        let timeout = Duration::from_millis(
-            config.server.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)
-        );
+        let timeout = Duration::from_millis(config.server.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS));
 
         let client = reqwest::Client::builder()
             .timeout(timeout)
@@ -48,7 +46,7 @@ impl ProxyState {
     }
 
     /// Find the first route that matches the given path and method
-    /// 
+    ///
     /// Routes are evaluated in the order they appear in the configuration.
     /// Returns None if no matching route is found.
     pub fn find_matching_route(&self, path: &str, method: &str) -> Option<&RouteConfig> {
@@ -60,7 +58,7 @@ impl ProxyState {
 }
 
 /// Main proxy handler for incoming requests
-/// 
+///
 /// This function:
 /// 1. Finds a matching route for the request
 /// 2. Transforms the request for upstream forwarding
@@ -101,17 +99,13 @@ pub async fn proxy_handler(
     };
 
     // Create and configure upstream request
-    let request_builder = match create_upstream_request(
-        &state,
-        route,
-        &method,
-        &target_url,
-        &headers,
-        body_bytes,
-    ).await {
-        Ok(builder) => builder,
-        Err(err_resp) => return err_resp,
-    };
+    let request_builder =
+        match create_upstream_request(&state, route, &method, &target_url, &headers, body_bytes)
+            .await
+        {
+            Ok(builder) => builder,
+            Err(err_resp) => return err_resp,
+        };
 
     // Execute upstream request
     let response = match execute_upstream_request(request_builder, &target_url).await {
@@ -124,7 +118,11 @@ pub async fn proxy_handler(
 }
 
 /// Find a matching route for the given request
-fn find_route_for_request<'a>(state: &'a ProxyState, path: &str, method: &str) -> Option<&'a RouteConfig> {
+fn find_route_for_request<'a>(
+    state: &'a ProxyState,
+    path: &str,
+    method: &str,
+) -> Option<&'a RouteConfig> {
     state.find_matching_route(path, method)
 }
 
@@ -132,12 +130,12 @@ fn find_route_for_request<'a>(state: &'a ProxyState, path: &str, method: &str) -
 fn build_target_url(route: &RouteConfig, path: &str, query: &str) -> String {
     let target_path = route.transform_path(path);
     let mut target_url = format!("{}{}", route.upstream, target_path);
-    
+
     if !query.is_empty() {
         target_url.push('?');
         target_url.push_str(query);
     }
-    
+
     target_url
 }
 
@@ -267,15 +265,17 @@ async fn execute_upstream_request(
         }
         Err(e) => {
             error!("Failed to proxy request to {}: {}", target_url, e);
-            Err((StatusCode::BAD_GATEWAY, format!("Failed to proxy request: {}", e)).into_response())
+            Err((
+                StatusCode::BAD_GATEWAY,
+                format!("Failed to proxy request: {}", e),
+            )
+                .into_response())
         }
     }
 }
 
 /// Process the upstream response and prepare it for the client
-async fn process_upstream_response(
-    response: reqwest::Response,
-) -> axum::response::Response {
+async fn process_upstream_response(response: reqwest::Response) -> axum::response::Response {
     // Convert status code
     let status = StatusCode::from_u16(response.status().as_u16())
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -297,7 +297,10 @@ async fn process_upstream_response(
     // Read response body
     let response_body = match response.bytes().await {
         Ok(bytes) => {
-            debug!("Successfully proxied request, response size: {} bytes", bytes.len());
+            debug!(
+                "Successfully proxied request, response size: {} bytes",
+                bytes.len()
+            );
             bytes
         }
         Err(e) => {
@@ -309,14 +312,12 @@ async fn process_upstream_response(
     (status, response_headers, response_body).into_response()
 }
 
-
-
 fn should_forward_header(header_name: &str) -> bool {
     // Check if header is in the filtered list
     if FILTERED_HEADERS.contains(&header_name) {
         return false;
     }
-    
+
     match header_name {
         // Don't forward hop-by-hop headers
         "keep-alive" | "proxy-connection" => false,
@@ -330,7 +331,7 @@ fn should_forward_response_header(header_name: &str) -> bool {
     if FILTERED_HEADERS.contains(&header_name) {
         return false;
     }
-    
+
     match header_name {
         // Don't forward hop-by-hop headers
         "keep-alive" | "proxy-connection" => false,

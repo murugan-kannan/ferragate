@@ -1,8 +1,7 @@
 /// Custom error types for Ferragate API Gateway
-/// 
+///
 /// This module provides structured error types that improve error handling
 /// and debugging throughout the application.
-
 use thiserror::Error;
 
 /// Main error type for Ferragate operations

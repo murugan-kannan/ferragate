@@ -1,0 +1,204 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types:
+      - completed
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.ferragate.example.com
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push to ECR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/ferragate:staging-${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/ferragate:staging-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Update EKS kubeconfig
+        run: aws eks update-kubeconfig --region us-west-2 --name ferragate-staging
+
+      - name: Deploy to staging
+        run: |
+          # Update the image in the deployment
+          kubectl set image deployment/ferragate ferragate=${{ steps.login-ecr.outputs.registry }}/ferragate:staging-${{ github.sha }} -n staging
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/ferragate -n staging --timeout=300s
+          
+          # Verify deployment
+          kubectl get pods -n staging -l app=ferragate
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Basic health check
+          curl -f https://staging.ferragate.example.com/health || exit 1
+          
+          # API endpoint test
+          curl -f https://staging.ferragate.example.com/api/v1/status || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://ferragate.example.com
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get latest staging image
+        id: get-image
+        run: |
+          # Get the latest staging image tag
+          STAGING_TAG=$(aws ecr describe-images --repository-name ferragate --query 'sort_by(imageDetails,& imageCreatedAt)[-1].imageTags[0]' --output text | grep staging)
+          echo "staging_tag=$STAGING_TAG" >> $GITHUB_OUTPUT
+
+      - name: Tag image for production
+        run: |
+          # Pull staging image
+          docker pull ${{ steps.login-ecr.outputs.registry }}/ferragate:${{ steps.get-image.outputs.staging_tag }}
+          
+          # Tag for production
+          docker tag ${{ steps.login-ecr.outputs.registry }}/ferragate:${{ steps.get-image.outputs.staging_tag }} \
+                     ${{ steps.login-ecr.outputs.registry }}/ferragate:production-${{ github.sha }}
+          docker tag ${{ steps.login-ecr.outputs.registry }}/ferragate:${{ steps.get-image.outputs.staging_tag }} \
+                     ${{ steps.login-ecr.outputs.registry }}/ferragate:production-latest
+          
+          # Push production tags
+          docker push ${{ steps.login-ecr.outputs.registry }}/ferragate:production-${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/ferragate:production-latest
+
+      - name: Update EKS kubeconfig
+        run: aws eks update-kubeconfig --region us-west-2 --name ferragate-production
+
+      - name: Deploy to production
+        run: |
+          # Create a backup of current deployment
+          kubectl get deployment ferragate -n production -o yaml > deployment-backup.yaml
+          
+          # Update the image in the deployment
+          kubectl set image deployment/ferragate ferragate=${{ steps.login-ecr.outputs.registry }}/ferragate:production-${{ github.sha }} -n production
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/ferragate -n production --timeout=600s
+          
+          # Verify deployment
+          kubectl get pods -n production -l app=ferragate
+
+      - name: Run production tests
+        run: |
+          # Wait for service to be ready
+          sleep 60
+          
+          # Comprehensive health checks
+          curl -f https://ferragate.example.com/health || exit 1
+          curl -f https://ferragate.example.com/api/v1/status || exit 1
+          curl -f https://ferragate.example.com/metrics || exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, rolling back..."
+          kubectl rollout undo deployment/ferragate -n production
+          kubectl rollout status deployment/ferragate -n production --timeout=300s
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    steps:
+      - name: Notify Slack on Success
+        if: needs.deploy-staging.result == 'success' || needs.deploy-production.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🚀 Ferragate deployment successful!
+            Environment: ${{ github.event.inputs.environment || 'staging' }}
+            Commit: ${{ github.sha }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Notify Slack on Failure
+        if: needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: |
+            ❌ Ferragate deployment failed!
+            Environment: ${{ github.event.inputs.environment || 'staging' }}
+            Commit: ${{ github.sha }}
+            Please check the logs for details.
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
