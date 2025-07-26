@@ -225,6 +225,9 @@ jobs:
     name: Deploy Documentation
     needs: create-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
