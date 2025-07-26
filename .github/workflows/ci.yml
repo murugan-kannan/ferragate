@@ -252,6 +252,9 @@ jobs:
     name: Benchmark
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
