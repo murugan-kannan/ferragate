@@ -424,19 +424,34 @@ mod tests {
 
     #[test]
     fn test_create_log_directory_error_handling() {
-        // Test with an invalid path (assuming this will fail on most systems)
+        use std::fs;
+        use tempfile::TempDir;
+        
+        // Create a temporary directory
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path();
+        
+        // Create a file in the temp directory
+        let file_path = temp_path.join("blocking_file");
+        fs::write(&file_path, "test").unwrap();
+        
+        // Try to create a log directory where a file already exists
+        // This should fail on all platforms
         let config = LoggingConfig {
             level: "info".to_string(),
             json_format: false,
             log_to_file: true,
-            log_dir: "/invalid/path/that/should/not/exist".to_string(),
+            log_dir: file_path.to_string_lossy().to_string(),
             log_file_prefix: "test".to_string(),
             include_location: false,
         };
 
         let result = init_logging(config);
-        // This should return an error due to inability to create the directory
+        
+        // This should return an error because we can't create a directory where a file exists
         assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error.to_string().contains("Failed to create log directory"));
     }
 
     #[test]
