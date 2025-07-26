@@ -476,7 +476,7 @@ mod tests {
                 // This covers the error handling path in run_app
 
                 // Test the eprintln! pattern used in run_app error handling
-                let error_message = format!("Failed to initialize logging: {}", e);
+                let error_message = format!("Failed to initialize logging: {e}");
                 assert!(!error_message.is_empty());
 
                 // Test returning the error (as done in run_app)
@@ -685,8 +685,8 @@ mod tests {
             }
             Err(e) => {
                 // This covers the error path with eprintln! and return Err(e)
-                let error_msg = format!("Failed to initialize logging: {}", e);
-                eprintln!("{}", error_msg); // This matches the eprintln! in run_app
+                let error_msg = format!("Failed to initialize logging: {e}");
+                eprintln!("{error_msg}"); // This matches the eprintln! in run_app
 
                 // Test that we can return the error as done in run_app
                 let _result: FerragateResult<()> = Err(e);
@@ -738,7 +738,7 @@ mod tests {
                 async fn mock_run_app() -> FerragateResult<()> {
                     // Step 1: Initialize logging (first line of run_app)
                     if let Err(e) = init_default_logging() {
-                        eprintln!("Failed to initialize logging: {}", e);
+                        eprintln!("Failed to initialize logging: {e}");
                         return Err(e);
                     }
 
