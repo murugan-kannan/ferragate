@@ -313,8 +313,7 @@ impl RouteConfig {
 
         if self.path.ends_with("/*") {
             let prefix = &self.path[..self.path.len() - 2];
-            if original_path.starts_with(prefix) {
-                let remaining = &original_path[prefix.len()..];
+            if let Some(remaining) = original_path.strip_prefix(prefix) {
                 if remaining.is_empty() {
                     "/".to_string()
                 } else {

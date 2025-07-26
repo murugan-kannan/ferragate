@@ -162,7 +162,7 @@ async fn create_upstream_request(
     // Convert HTTP method
     let reqwest_method = match convert_http_method(method) {
         Ok(reqwest_method) => reqwest_method,
-        Err(err_resp) => return Err(err_resp),
+        Err(err_resp) => return Err(*err_resp),
     };
 
     // Create base request
@@ -189,7 +189,7 @@ async fn create_upstream_request(
 }
 
 /// Convert Axum HTTP method to reqwest method
-fn convert_http_method(method: &Method) -> Result<reqwest::Method, axum::response::Response> {
+fn convert_http_method(method: &Method) -> Result<reqwest::Method, Box<axum::response::Response>> {
     match method.as_str() {
         "GET" => Ok(reqwest::Method::GET),
         "POST" => Ok(reqwest::Method::POST),
@@ -200,7 +200,7 @@ fn convert_http_method(method: &Method) -> Result<reqwest::Method, axum::respons
         "PATCH" => Ok(reqwest::Method::PATCH),
         _ => {
             warn!("Unsupported HTTP method: {}", method);
-            Err((StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response())
+            Err(Box::new((StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response()))
         }
     }
 }

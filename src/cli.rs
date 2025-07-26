@@ -169,8 +169,8 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Ferraga
     // Create output directory if it doesn't exist
     std::fs::create_dir_all(&output_dir)?;
 
-    let cert_path = output_dir.join(&format!("server{}", CERT_FILE_EXTENSION));
-    let key_path = output_dir.join(&format!("server{}", KEY_FILE_EXTENSION));
+    let cert_path = output_dir.join(format!("server{}", CERT_FILE_EXTENSION));
+    let key_path = output_dir.join(format!("server{}", KEY_FILE_EXTENSION));
 
     // Check if certificates already exist
     if (cert_path.exists() || key_path.exists()) && !force {
