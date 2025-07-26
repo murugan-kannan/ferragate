@@ -21,7 +21,7 @@ use crate::error::FerragateResult;
 pub async fn run_app() -> FerragateResult<()> {
     // Initialize logging system first
     if let Err(e) = init_default_logging() {
-        eprintln!("Failed to initialize logging: {}", e);
+        eprintln!("Failed to initialize logging: {e}");
         return Err(e);
     }
 
@@ -74,7 +74,7 @@ mod tests {
         match logging_result {
             Ok(()) => {
                 // Successfully initialized logging
-                assert!(true);
+                // Test passes if we get here without panic
             }
             Err(e) => {
                 // Already initialized - this is expected in test environment
@@ -103,7 +103,7 @@ mod tests {
         let test_error = FerragateError::validation("Simulated logging initialization error");
 
         // Simulate the error handling in run_app
-        let error_msg = format!("Failed to initialize logging: {}", test_error);
+        let error_msg = format!("Failed to initialize logging: {test_error}");
         assert!(!error_msg.is_empty());
 
         // Test that we can return the error as done in run_app
@@ -124,10 +124,10 @@ mod tests {
         match app_result {
             Ok(()) => {
                 // This is the success path in main() - it returns Ok(())
-                assert!(true);
+                // Test passes if we get here without panic
             }
             Err(_) => {
-                assert!(false, "Expected success path");
+                panic!("Expected success path");
             }
         }
     }
@@ -142,7 +142,7 @@ mod tests {
 
         match app_result {
             Ok(()) => {
-                assert!(false, "Expected error path");
+                panic!("Expected error path");
             }
             Err(e) => {
                 // This simulates the error path in main()
@@ -151,11 +151,12 @@ mod tests {
 
                 // Verify std::process::exit is accessible (but don't call it)
                 let exit_fn = std::process::exit;
-                assert!(exit_fn as *const () != std::ptr::null());
+                // Function pointers are never null, just verify it exists
+                let _ = exit_fn;
 
                 // In real main(), it would call std::process::exit(1) here
                 // But we can't test that without terminating the test process
-                assert!(true);
+                // Test passes if we get here without panic
             }
         }
     }
@@ -171,7 +172,8 @@ mod tests {
 
         // Test that main function exists with correct signature
         let main_fn = main;
-        assert!(main_fn as *const () != std::ptr::null());
+        // Function pointers are never null, just verify it exists  
+        let _ = main_fn;
     }
 
     #[tokio::test]
@@ -191,8 +193,8 @@ mod tests {
             }
             Err(e) => {
                 // This simulates the error path in run_app
-                let error_msg = format!("Failed to initialize logging: {}", e);
-                eprintln!("{}", error_msg);
+                let error_msg = format!("Failed to initialize logging: {e}");
+                eprintln!("{error_msg}");
 
                 // In run_app, this would return Err(e)
                 // We can test that the error is properly formatted
@@ -213,7 +215,6 @@ mod tests {
 
         // Test that the execute method would be callable
         // (We can't actually call it without proper CLI setup)
-        assert!(true);
     }
 
     #[test]
@@ -232,7 +233,6 @@ mod tests {
         if let Err(e) = error_result {
             error!("Application error: {}", e);
             // This matches the pattern in main()
-            assert!(true);
         }
     }
 
@@ -278,7 +278,6 @@ mod tests {
         // Test TLS module
         // TLS module is imported, test passes if compilation succeeds
 
-        assert!(true);
     }
 
     #[tokio::test]
@@ -324,10 +323,9 @@ mod tests {
         match success_result {
             Ok(()) => {
                 // This is the success path - main would return Ok(())
-                assert!(true);
             }
             Err(_) => {
-                assert!(false, "Expected success");
+                panic!("Expected success");
             }
         }
 
@@ -335,7 +333,7 @@ mod tests {
         let error_result = mock_run_app_error().await;
         match error_result {
             Ok(()) => {
-                assert!(false, "Expected error");
+                panic!("Expected error");
             }
             Err(e) => {
                 // This is the error path - main would log error and exit
@@ -345,7 +343,6 @@ mod tests {
                 // In real main, std::process::exit(1) would be called here
                 // We verify the exit function is accessible but don't call it
                 let _exit_fn = std::process::exit;
-                assert!(true);
             }
         }
     }
@@ -359,7 +356,9 @@ mod tests {
         let result = init_default_logging();
         // Should succeed or already be initialized (subscriber already set)
         match result {
-            Ok(()) => assert!(true),
+            Ok(()) => {
+                // Successfully initialized logging
+            }
             Err(e) => {
                 // Expected error when subscriber is already set
                 assert!(
@@ -383,7 +382,6 @@ mod tests {
         match logging_result {
             Ok(()) => {
                 // Great, logging was initialized successfully
-                assert!(true);
             }
             Err(e) => {
                 // Expected when already initialized
@@ -412,7 +410,7 @@ mod tests {
         match simulated_error {
             Ok(()) => {
                 // This would be the success path in main()
-                assert!(false, "Should have been an error");
+                panic!("Should have been an error");
             }
             Err(e) => {
                 // This simulates the error path in main()
@@ -422,7 +420,6 @@ mod tests {
                 // We can't actually call std::process::exit(1) in tests
                 // but we can verify it's accessible
                 let _exit_fn = std::process::exit;
-                assert!(true);
             }
         }
     }
@@ -435,10 +432,9 @@ mod tests {
         match simulated_success {
             Ok(()) => {
                 // This is the success path that returns Ok(()) in main()
-                assert!(true);
             }
             Err(_) => {
-                assert!(false, "Should have been success");
+                panic!("Should have been success");
             }
         }
     }
@@ -461,7 +457,6 @@ mod tests {
         let _success: FerragateResult<()> = Ok(());
         let _error: FerragateResult<()> = Err(FerragateError::server("test"));
 
-        assert!(true);
     }
 
     #[test]
@@ -477,7 +472,6 @@ mod tests {
         match result {
             Ok(()) => {
                 // Logging was successfully initialized
-                assert!(true);
             }
             Err(e) => {
                 // Expected when logging is already initialized
@@ -489,7 +483,6 @@ mod tests {
 
                 // Test returning the error (as done in run_app)
                 let _error_result: FerragateResult<()> = Err(e);
-                assert!(true);
             }
         }
     }
@@ -499,14 +492,12 @@ mod tests {
         // Test that the main function exists and has the right signature
         // This ensures the function compiles and is accessible
         let _main_fn = main;
-        assert!(true);
     }
 
     #[test]
     fn test_run_app_function_exists() {
         // Test that run_app function exists and compiles
         let _run_app_fn = run_app;
-        assert!(true);
     }
 
     #[tokio::test]
@@ -543,7 +534,6 @@ mod tests {
         // Don't actually call parse_args() as it reads from process args
         // and might trigger --help output in test environment
 
-        assert!(true); // If we get here, CLI module is accessible
     }
 
     #[test]
@@ -556,7 +546,6 @@ mod tests {
         let _ = LoggingConfig::default();
 
         // If compilation succeeds, all modules are properly accessible
-        assert!(true);
     }
 
     #[test]
@@ -565,7 +554,6 @@ mod tests {
         use tracing::error;
         error!("Test error log");
         // If no panic, logging is working
-        assert!(true);
     }
 
     #[test]
@@ -590,7 +578,6 @@ mod tests {
         // Test that proxy state can be created
         let _proxy_state = ProxyState::new(config);
 
-        assert!(true);
     }
 
     #[test]
@@ -600,7 +587,6 @@ mod tests {
         let _result2 = init_default_logging();
 
         // Test that multiple initializations are handled gracefully
-        assert!(true);
     }
 
     #[tokio::test]
@@ -623,7 +609,8 @@ mod tests {
         // Test that run_app function exists and is callable
         // We can't actually run it fully due to CLI dependency, but we can verify it compiles
         let run_app_fn = run_app;
-        assert!(run_app_fn as *const () != std::ptr::null());
+        // Function pointers are never null, just verify it exists
+        let _ = run_app_fn;
     }
 
     #[test]
@@ -638,7 +625,6 @@ mod tests {
 
         // Test std::process::exit accessibility (but don't call it)
         let _exit_fn = std::process::exit;
-        assert!(true);
     }
 
     #[tokio::test]
@@ -675,7 +661,6 @@ mod tests {
         // Test anyhow Result type
         let _result: FerragateResult<()> = Ok(());
 
-        assert!(true);
     }
 
     #[test]
@@ -702,7 +687,6 @@ mod tests {
         match logging_result {
             Ok(()) => {
                 // This covers the successful logging initialization path
-                assert!(true);
             }
             Err(e) => {
                 // This covers the error path with eprintln! and return Err(e)
@@ -711,7 +695,6 @@ mod tests {
 
                 // Test that we can return the error as done in run_app
                 let _result: FerragateResult<()> = Err(e);
-                assert!(true);
             }
         }
     }
@@ -731,7 +714,6 @@ mod tests {
             match mock_app_result {
                 Ok(()) => {
                     // Success path - main would return Ok(())
-                    assert!(true);
                 }
                 Err(e) => {
                     // Error path - main would log error and exit
@@ -741,7 +723,6 @@ mod tests {
                     // std::process::exit(1) would be called here in real main
                     // We verify the function is accessible but don't call it
                     let _exit_function = std::process::exit;
-                    assert!(true);
                 }
             }
         });
@@ -790,11 +771,9 @@ mod tests {
             match result {
                 Ok(()) => {
                     // Success path was executed
-                    assert!(true);
                 }
                 Err(_) => {
                     // Error path was executed (expected if logging already initialized)
-                    assert!(true);
                 }
             }
         });

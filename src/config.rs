@@ -148,11 +148,11 @@ impl GatewayConfig {
         info!("Loading configuration from: {}", path);
 
         let content = fs::read_to_string(path).map_err(|e| {
-            FerragateError::config(format!("Failed to read config file '{}': {}", path, e))
+            FerragateError::config(format!("Failed to read config file '{path}': {e}"))
         })?;
 
         let config: GatewayConfig = toml::from_str(&content).map_err(|e| {
-            FerragateError::config(format!("Failed to parse config file '{}': {}", path, e))
+            FerragateError::config(format!("Failed to parse config file '{path}': {e}"))
         })?;
 
         info!("{} from: {}", LOG_CONFIG_LOADED, path);
@@ -199,7 +199,7 @@ impl GatewayConfig {
         for (i, route) in self.routes.iter().enumerate() {
             route
                 .validate()
-                .map_err(|e| FerragateError::config(format!("Route {}: {}", i, e)))?;
+                .map_err(|e| FerragateError::config(format!("Route {i}: {e}")))?;
         }
 
         info!("Configuration validation completed successfully");
@@ -347,8 +347,7 @@ impl RouteConfig {
                 "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" => {}
                 _ => {
                     return Err(FerragateError::validation(format!(
-                        "Invalid HTTP method: {}",
-                        method
+                        "Invalid HTTP method: {method}"
                     )))
                 }
             }

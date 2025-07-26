@@ -150,11 +150,10 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
         Err(e) => {
             if e.to_string().contains("already been set") {
                 // Subscriber already set, which is okay for tests
-                eprintln!("Warning: Global subscriber already set: {}", e);
+                eprintln!("Warning: Global subscriber already set: {e}");
             } else {
                 return Err(FerragateError::config(format!(
-                    "Failed to initialize logging: {}",
-                    e
+                    "Failed to initialize logging: {e}"
                 )));
             }
         }
@@ -185,7 +184,7 @@ pub fn create_request_id() -> String {
         .unwrap_or_default()
         .as_nanos();
     let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("req_{}_{}", timestamp, counter)
+    format!("req_{timestamp}_{counter}")
 }
 
 #[cfg(test)]
@@ -415,7 +414,7 @@ mod tests {
     #[test]
     fn test_logging_config_debug_format() {
         let config = LoggingConfig::default();
-        let debug_str = format!("{:?}", config);
+        let debug_str = format!("{config:?}");
 
         assert!(debug_str.contains("LoggingConfig"));
         assert!(debug_str.contains("level"));
@@ -472,8 +471,7 @@ mod tests {
             // Either succeeds or fails with "already set" error
             assert!(
                 result.is_ok() || result.unwrap_err().to_string().contains("already been set"),
-                "Failed to handle logging with level: {}",
-                level
+                "Failed to handle logging with level: {level}"
             );
         }
     }

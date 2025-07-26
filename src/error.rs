@@ -114,7 +114,7 @@ impl From<std::io::Error> for FerragateError {
 impl From<serde_json::Error> for FerragateError {
     fn from(err: serde_json::Error) -> Self {
         Self::Config {
-            message: format!("JSON parsing error: {}", err),
+            message: format!("JSON parsing error: {err}"),
         }
     }
 }
@@ -123,7 +123,7 @@ impl From<serde_json::Error> for FerragateError {
 impl From<toml::de::Error> for FerragateError {
     fn from(err: toml::de::Error) -> Self {
         Self::Config {
-            message: format!("TOML parsing error: {}", err),
+            message: format!("TOML parsing error: {err}"),
         }
     }
 }
@@ -132,7 +132,7 @@ impl From<toml::de::Error> for FerragateError {
 impl From<toml::ser::Error> for FerragateError {
     fn from(err: toml::ser::Error) -> Self {
         Self::Config {
-            message: format!("TOML serialization error: {}", err),
+            message: format!("TOML serialization error: {err}"),
         }
     }
 }

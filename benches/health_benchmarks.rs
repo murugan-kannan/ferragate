@@ -64,7 +64,7 @@ fn benchmark_health_check_operations(c: &mut Criterion) {
         b.iter(|| {
             counter += 1;
             app_state.register_health_check(
-                format!("service_{}", counter),
+                format!("service_{counter}"),
                 HealthStatus::Healthy,
                 Some("New service".to_string()),
             );
@@ -78,9 +78,9 @@ fn benchmark_health_check_batch_operations(c: &mut Criterion) {
     // Initialize with multiple health checks
     for i in 0..10 {
         app_state.register_health_check(
-            format!("service_{}", i),
+            format!("service_{i}"),
             HealthStatus::Healthy,
-            Some(format!("Service {} operational", i)),
+            Some(format!("Service {i} operational")),
         );
     }
 
@@ -88,13 +88,13 @@ fn benchmark_health_check_batch_operations(c: &mut Criterion) {
         b.iter(|| {
             for i in 0..10 {
                 app_state.update_health_check(
-                    &format!("service_{}", i),
+                    &format!("service_{i}"),
                     if i % 2 == 0 {
                         HealthStatus::Healthy
                     } else {
                         HealthStatus::Unhealthy
                     },
-                    Some(format!("Service {} status update", i)),
+                    Some(format!("Service {i} status update")),
                 );
             }
         })

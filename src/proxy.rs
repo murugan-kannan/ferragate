@@ -244,7 +244,7 @@ fn handle_host_header(
         if let Ok(target_url_parsed) = url::Url::parse(target_url) {
             if let Some(host) = target_url_parsed.host_str() {
                 let host_header = if let Some(port) = target_url_parsed.port() {
-                    format!("{}:{}", host, port)
+                    format!("{host}:{port}")
                 } else {
                     host.to_string()
                 };
@@ -269,7 +269,7 @@ async fn execute_upstream_request(
             error!("Failed to proxy request to {}: {}", target_url, e);
             Err((
                 StatusCode::BAD_GATEWAY,
-                format!("Failed to proxy request: {}", e),
+                format!("Failed to proxy request: {e}"),
             )
                 .into_response())
         }

@@ -24,15 +24,13 @@ pub async fn load_tls_config(cert_file: &str, key_file: &str) -> FerragateResult
     // Validate that both files exist before attempting to load
     if !std::path::Path::new(cert_file).exists() {
         return Err(FerragateError::tls(format!(
-            "Certificate file not found: {}",
-            cert_file
+            "Certificate file not found: {cert_file}"
         )));
     }
 
     if !std::path::Path::new(key_file).exists() {
         return Err(FerragateError::tls(format!(
-            "Private key file not found: {}",
-            key_file
+            "Private key file not found: {key_file}"
         )));
     }
 
@@ -40,8 +38,7 @@ pub async fn load_tls_config(cert_file: &str, key_file: &str) -> FerragateResult
         .await
         .map_err(|e| {
             FerragateError::tls(format!(
-                "Failed to load TLS configuration from cert: {}, key: {}: {}",
-                cert_file, key_file, e
+                "Failed to load TLS configuration from cert: {cert_file}, key: {key_file}: {e}"
             ))
         })?;
 
@@ -96,25 +93,23 @@ pub fn create_self_signed_cert(
 
     // Generate the certificate
     let cert = Certificate::from_params(params).map_err(|e| {
-        FerragateError::tls(format!("Failed to generate self-signed certificate: {}", e))
+        FerragateError::tls(format!("Failed to generate self-signed certificate: {e}"))
     })?;
 
     // Write certificate to file
     let cert_pem = cert
         .serialize_pem()
-        .map_err(|e| FerragateError::tls(format!("Failed to serialize certificate: {}", e)))?;
+        .map_err(|e| FerragateError::tls(format!("Failed to serialize certificate: {e}")))?;
     fs::write(cert_path, cert_pem).map_err(|e| {
         FerragateError::tls(format!(
-            "Failed to write certificate to '{}': {}",
-            cert_path, e
+            "Failed to write certificate to '{cert_path}': {e}"
         ))
     })?;
 
     // Write private key to file
     fs::write(key_path, cert.serialize_private_key_pem()).map_err(|e| {
         FerragateError::tls(format!(
-            "Failed to write private key to '{}': {}",
-            key_path, e
+            "Failed to write private key to '{key_path}': {e}"
         ))
     })?;
 

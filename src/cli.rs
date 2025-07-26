@@ -169,8 +169,8 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Ferraga
     // Create output directory if it doesn't exist
     std::fs::create_dir_all(&output_dir)?;
 
-    let cert_path = output_dir.join(format!("server{}", CERT_FILE_EXTENSION));
-    let key_path = output_dir.join(format!("server{}", KEY_FILE_EXTENSION));
+    let cert_path = output_dir.join(format!("server{CERT_FILE_EXTENSION}"));
+    let key_path = output_dir.join(format!("server{KEY_FILE_EXTENSION}"));
 
     // Check if certificates already exist
     if (cert_path.exists() || key_path.exists()) && !force {
@@ -1092,7 +1092,8 @@ methods = ["GET"]
     async fn test_stop_server_with_pid_file() {
         let temp_dir = tempdir().unwrap();
         let config_path = temp_dir.path().join("pid_test.toml");
-        let pid_file = format!("{}.pid", config_path.to_str().unwrap());
+        let config_str = config_path.to_str().unwrap();
+        let pid_file = format!("{config_str}.pid");
 
         // Create a fake PID file with a non-existent process ID
         fs::write(&pid_file, "99999").unwrap();
