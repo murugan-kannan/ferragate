@@ -385,7 +385,7 @@ mod tests {
             Err(e) => {
                 // Expected when already initialized
                 // This exercises the error handling path in run_app
-                let error_msg = format!("Failed to initialize logging: {}", e);
+                let error_msg = format!("Failed to initialize logging: {e}");
                 assert!(error_msg.contains("Failed to initialize logging"));
 
                 // Test that we can create and return FerragateResult errors (like in run_app)
