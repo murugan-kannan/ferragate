@@ -57,9 +57,17 @@ jobs:
 
       - name: Run cargo test
         run: cargo test --all-features --workspace
+        env:
+          # Provide consistent test environment across platforms
+          RUST_BACKTRACE: 1
+          # Ensure consistent tempdir behavior on Windows  
+          TEMP: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
 
       - name: Run integration tests
         run: cargo test --test integration_tests --all-features
+        env:
+          RUST_BACKTRACE: 1
 
   fmt:
     name: Rustfmt
@@ -95,6 +103,9 @@ jobs:
 
       - name: Run cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+        env:
+          # Ensure consistent behavior across platforms
+          RUST_BACKTRACE: 1
 
   security-audit:
     name: Security Audit
