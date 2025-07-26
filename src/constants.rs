@@ -2,7 +2,6 @@
 ///
 /// This module contains all the magic numbers, default values, and string constants
 /// used throughout the application to improve maintainability and consistency.
-
 // Default server configuration
 pub const DEFAULT_HOST: &str = "0.0.0.0";
 pub const DEFAULT_HTTP_PORT: u16 = 3000;
