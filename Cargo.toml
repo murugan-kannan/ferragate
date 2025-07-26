@@ -35,6 +35,10 @@ http-body-util = "0.1"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
+tokio-util = "0.7"
+
+# System calls
+libc = "0.2"
 
 # Serialization and configuration
 serde = { version = "1.0", features = ["derive"] }

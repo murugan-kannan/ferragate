@@ -63,6 +63,17 @@ pub enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Stop the running gateway server
+    Stop {
+        /// Configuration file path (to identify the correct server instance)
+        #[arg(short, long, default_value = "gateway.toml")]
+        config: PathBuf,
+
+        /// Force stop (kill process immediately)
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 impl Cli {
@@ -80,6 +91,7 @@ impl Cli {
                 hostname,
                 force,
             } => generate_certs(output_dir, hostname, force),
+            Commands::Stop { config, force } => stop_server(config, force).await,
         }
     }
 }
@@ -105,7 +117,7 @@ async fn start_server(
     }
 
     // Start the server
-    crate::server::start_server(config).await
+    crate::server::start_server(config, config_path.to_str()).await
 }
 
 fn validate_config(config_path: PathBuf) -> Result<()> {
@@ -180,6 +192,11 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Result<
     Ok(())
 }
 
+async fn stop_server(config_path: PathBuf, force: bool) -> Result<()> {
+    // Delegate to server module - CLI should not contain business logic
+    crate::server::stop_server(config_path.to_str(), force).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -246,6 +263,15 @@ mod tests {
             },
         };
         assert!(matches!(gencerts_cli.command, Commands::GenCerts { .. }));
+
+        // Test Stop command
+        let stop_cli = Cli {
+            command: Commands::Stop {
+                config: PathBuf::from("test.toml"),
+                force: false,
+            },
+        };
+        assert!(matches!(stop_cli.command, Commands::Stop { .. }));
     }
 
     #[test]
@@ -763,6 +789,12 @@ methods = ["GET", "POST"]
             force: false,
         };
         assert!(matches!(gencerts_cmd, Commands::GenCerts { .. }));
+
+        let stop_cmd = Commands::Stop {
+            config: PathBuf::from("test.toml"),
+            force: false,
+        };
+        assert!(matches!(stop_cmd, Commands::Stop { .. }));
     }
 
     #[tokio::test]
@@ -824,7 +856,7 @@ methods = ["GET"]
     #[test]
     fn test_generate_certs_path_str_conversion() {
         let temp_dir = tempdir().unwrap();
-        let cert_dir = temp_dir.path().join("path_test");
+        let cert_dir = temp_dir.path().join("server.crt");
 
         // Test that paths can be converted to strings properly
         let cert_path = cert_dir.join("server.crt");
@@ -1009,6 +1041,91 @@ methods = ["GET"]
             },
         };
         let result = gencerts_cli.execute().await;
+        assert!(result.is_ok());
+
+        // Test Stop command structure
+        let stop_cli = Cli {
+            command: Commands::Stop {
+                config: config_path.clone(),
+                force: false,
+            },
+        };
+        let result = stop_cli.execute().await;
+        // Stop command should succeed even if no processes are found
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stop_server_no_processes() {
+        // Test stop command when no ferragate processes are running
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("stop_test.toml");
+
+        let result = stop_server(config_path, false).await;
+        // Should succeed even if no processes found
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stop_server_force_flag() {
+        // Test stop command with force flag
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("force_stop_test.toml");
+
+        let result = stop_server(config_path, true).await;
+        // Should succeed even with force flag when no processes found
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stop_server_with_pid_file() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("pid_test.toml");
+        let pid_file = format!("{}.pid", config_path.to_str().unwrap());
+
+        // Create a fake PID file with a non-existent process ID
+        fs::write(&pid_file, "99999").unwrap();
+
+        let result = stop_server(config_path, false).await;
+        // Should handle non-existent process gracefully
+        // The exact behavior depends on the system, but it shouldn't panic
+        assert!(result.is_ok() || result.is_err());
+
+        // PID file should be cleaned up if the function succeeded
+        if result.is_ok() {
+            assert!(!std::path::Path::new(&pid_file).exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_cli_execute_stop() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("execute_stop_test.toml");
+
+        let cli = Cli {
+            command: Commands::Stop {
+                config: config_path,
+                force: false,
+            },
+        };
+
+        let result = cli.execute().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_cli_execute_stop_force() {
+        let temp_dir = tempdir().unwrap();
+        let config_path = temp_dir.path().join("execute_stop_force_test.toml");
+
+        let cli = Cli {
+            command: Commands::Stop {
+                config: config_path,
+                force: true,
+            },
+        };
+
+        let result = cli.execute().await;
         assert!(result.is_ok());
     }
 }

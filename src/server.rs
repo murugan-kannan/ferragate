@@ -8,6 +8,9 @@ use axum::{
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use tracing::{error, info, warn};
+use tokio::signal;
+use tokio_util::sync::CancellationToken;
+use std::path::Path;
 
 #[cfg_attr(not(test), allow(unused_imports))]
 use crate::config::{GatewayConfig, LoggingConfig, RouteConfig, ServerConfig};
@@ -15,8 +18,160 @@ use crate::health::{health_handler, liveness_handler, readiness_handler, AppStat
 use crate::proxy::{handle_not_found, proxy_handler, ProxyState};
 use crate::tls;
 
-pub async fn start_server(config: GatewayConfig) -> Result<()> {
+fn write_pid_file(path: &str) -> Result<()> {
+    use std::fs;
+    let pid = std::process::id();
+    fs::write(path, pid.to_string())?;
+    info!("PID file written: {} (PID: {})", path, pid);
+    Ok(())
+}
+
+fn get_control_socket_path(config_path: &str) -> String {
+    #[cfg(unix)]
+    {
+        format!("/tmp/ferragate_{}.sock", 
+            config_path.replace(['/', '\\', '.'], "_"))
+    }
+    #[cfg(windows)]
+    {
+        // On Windows, we'll use a named pipe approach
+        format!("ferragate_{}", 
+            config_path.replace(['/', '\\', '.', ':'], "_"))
+    }
+}
+
+#[cfg(unix)]
+async fn start_control_socket_listener(
+    socket_path: String, 
+    shutdown_token: CancellationToken
+) -> Result<()> {
+    use tokio::net::UnixListener;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // Remove existing socket file if it exists
+    if Path::new(&socket_path).exists() {
+        std::fs::remove_file(&socket_path)?;
+    }
+
+    let listener = UnixListener::bind(&socket_path)?;
+    info!("Control socket listening at: {}", socket_path);
+
+    loop {
+        tokio::select! {
+            _ = shutdown_token.cancelled() => {
+                info!("Control socket listener shutting down");
+                break;
+            }
+            accept_result = listener.accept() => {
+                match accept_result {
+                    Ok((mut stream, _)) => {
+                        info!("Received control connection");
+                        
+                        let shutdown_token_clone = shutdown_token.clone();
+                        tokio::spawn(async move {
+                            let mut buffer = [0u8; 1024];
+                            match stream.read(&mut buffer).await {
+                                Ok(n) => {
+                                    let command = String::from_utf8_lossy(&buffer[..n]);
+                                    let command = command.trim();
+                                    
+                                    if command == "shutdown" {
+                                        info!("Received shutdown command via control socket");
+                                        let _ = stream.write_all(b"OK: Shutdown initiated\n").await;
+                                        shutdown_token_clone.cancel();
+                                    } else if command == "status" {
+                                        let _ = stream.write_all(b"OK: Server running\n").await;
+                                    } else {
+                                        let _ = stream.write_all(b"ERROR: Unknown command\n").await;
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Failed to read from control socket: {}", e);
+                                }
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        warn!("Failed to accept control connection: {}", e);
+                    }
+                }
+            }
+        }
+    }
+
+    // Clean up socket file
+    let _ = std::fs::remove_file(&socket_path);
+    info!("Control socket file removed: {}", socket_path);
+
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn start_control_socket_listener(
+    _socket_path: String, 
+    shutdown_token: CancellationToken
+) -> Result<()> {
+    // For Windows, we'll use a simpler file-based approach for now
+    // This could be enhanced with named pipes in the future
+    info!("Control socket not yet implemented on Windows, using signal-only shutdown");
+    shutdown_token.cancelled().await;
+    Ok(())
+}
+
+async fn shutdown_signal(shutdown_token: CancellationToken) {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+        info!("Received Ctrl+C signal, shutting down gracefully...");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+        info!("Received terminate signal, shutting down gracefully...");
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    let token_cancelled = async {
+        shutdown_token.cancelled().await;
+        info!("Received shutdown via control socket, shutting down gracefully...");
+    };
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+        _ = token_cancelled => {},
+    }
+}
+
+pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> Result<()> {
     info!("Starting FerraGate API Gateway v0.1.0");
+
+    // Create a shutdown token for graceful shutdown coordination
+    let shutdown_token = CancellationToken::new();
+
+    // Write PID file for graceful shutdown
+    let config_str = config_path.unwrap_or("gateway.toml");
+    let pid_file = format!("{}.pid", config_str);
+    if let Err(e) = write_pid_file(&pid_file) {
+        warn!("Failed to write PID file {}: {}", pid_file, e);
+    }
+
+    // Start control socket listener for graceful shutdown
+    let socket_path = get_control_socket_path(config_str);
+    info!("Starting control socket listener at: {}", socket_path);
+    let socket_shutdown_token = shutdown_token.clone();
+    let socket_handle = tokio::spawn(async move {
+        if let Err(e) = start_control_socket_listener(socket_path, socket_shutdown_token).await {
+            warn!("Control socket listener error: {}", e);
+        }
+    });
 
     // Create proxy state
     let proxy_state = ProxyState::new(config.clone());
@@ -50,7 +205,7 @@ pub async fn start_server(config: GatewayConfig) -> Result<()> {
             let https_handle =
                 tokio::spawn(async move { start_https_server(https_config, app).await });
 
-            // Wait for either server to fail
+            // Wait for either server to fail or shutdown signal
             tokio::select! {
                 result = http_handle => {
                     match result {
@@ -66,14 +221,46 @@ pub async fn start_server(config: GatewayConfig) -> Result<()> {
                         Err(e) => error!("HTTPS server task panicked: {}", e),
                     }
                 }
+                _ = shutdown_signal(shutdown_token.clone()) => {
+                    info!("Received shutdown signal");
+                }
             }
         } else {
             // TLS disabled, start only HTTP server
-            start_http_server(config, app).await?;
+            tokio::select! {
+                result = start_http_server(config, app) => {
+                    if let Err(e) = result {
+                        error!("HTTP server error: {}", e);
+                    }
+                }
+                _ = shutdown_signal(shutdown_token.clone()) => {
+                    info!("Received shutdown signal");
+                }
+            }
         }
     } else {
         // No TLS configuration, start only HTTP server
-        start_http_server(config, app).await?;
+        tokio::select! {
+            result = start_http_server(config, app) => {
+                if let Err(e) = result {
+                    error!("HTTP server error: {}", e);
+                }
+            }
+            _ = shutdown_signal(shutdown_token.clone()) => {
+                info!("Received shutdown signal");
+            }
+        }
+    }
+
+    // Clean up: cancel all tasks and wait for them to finish
+    shutdown_token.cancel();
+    let _ = socket_handle.await;
+
+    // Clean up PID file on shutdown
+    if let Err(e) = std::fs::remove_file(&pid_file) {
+        warn!("Failed to remove PID file {}: {}", pid_file, e);
+    } else {
+        info!("PID file {} removed", pid_file);
     }
 
     Ok(())
@@ -983,5 +1170,202 @@ mod tests {
             logging: LoggingConfig::default(),
         };
         log_routes_info(&single_route_config);
+    }
+}
+
+/// Stop a running FerraGate server gracefully using control socket
+pub async fn stop_server(config_path: Option<&str>, force: bool) -> Result<()> {
+    info!("Attempting to stop FerraGate server...");
+
+    let config_str = config_path.unwrap_or("gateway.toml");
+    
+    // Try to find the PID file first
+    let pid_file = format!("{}.pid", config_str);
+    
+    if !Path::new(&pid_file).exists() {
+        info!("No PID file found. Server might not be running.");
+        return Ok(());
+    }
+
+    // Try control socket communication first
+    let socket_path = get_control_socket_path(config_str);
+    
+    #[cfg(unix)]
+    {
+        if let Ok(()) = send_shutdown_command(&socket_path, force).await {
+            // Wait a moment for graceful shutdown
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            
+            // Check if the server actually stopped by checking PID file
+            if !Path::new(&pid_file).exists() {
+                info!("✅ FerraGate server stopped gracefully!");
+                return Ok(());
+            }
+        }
+    }
+
+    // If control socket failed, fall back to PID-based stopping
+    warn!("Control socket communication failed, falling back to PID-based shutdown");
+    stop_server_by_pid(&pid_file, force).await
+}
+
+#[cfg(unix)]
+async fn send_shutdown_command(socket_path: &str, _force: bool) -> Result<()> {
+    use tokio::net::UnixStream;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    // Try to connect to control socket
+    let mut stream = UnixStream::connect(socket_path).await?;
+    
+    // Send shutdown command
+    stream.write_all(b"shutdown").await?;
+    
+    // Read response
+    let mut buffer = [0u8; 1024];
+    let n = stream.read(&mut buffer).await?;
+    let response = String::from_utf8_lossy(&buffer[..n]);
+    
+    if response.starts_with("OK:") {
+        info!("Shutdown command sent successfully: {}", response.trim());
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!("Unexpected response: {}", response.trim()))
+    }
+}
+
+#[cfg(windows)]
+async fn send_shutdown_command(_socket_path: &str, _force: bool) -> Result<()> {
+    // For Windows, we don't have Unix sockets, so we'll fall back to PID-based shutdown
+    Err(anyhow::anyhow!("Control socket not supported on Windows"))
+}
+
+async fn stop_server_by_pid(pid_file: &str, force: bool) -> Result<()> {
+    use std::fs;
+    
+    if let Ok(pid_content) = fs::read_to_string(pid_file) {
+        if let Ok(pid) = pid_content.trim().parse::<u32>() {
+            info!("Found PID file with process ID: {}", pid);
+            
+            // Use a more robust approach: just send signals and let the server handle cleanup
+            #[cfg(unix)]
+            {
+                return stop_unix_process(pid, force, pid_file).await;
+            }
+            
+            #[cfg(windows)]
+            {
+                return stop_windows_process(pid, force, pid_file).await;
+            }
+        }
+    }
+    
+    Err(anyhow::anyhow!("Could not read or parse PID file"))
+}
+
+#[cfg(unix)]
+async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> Result<()> {
+    // Check if process exists first
+    let check_result = unsafe { libc::kill(pid as i32, 0) };
+    if check_result != 0 {
+        info!("Process {} not found or already stopped", pid);
+        let _ = std::fs::remove_file(pid_file);
+        return Ok(());
+    }
+    
+    if force {
+        info!("Force stopping process {}...", pid);
+        let result = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
+        if result == 0 {
+            let _ = std::fs::remove_file(pid_file);
+            info!("✅ FerraGate server force-stopped successfully!");
+            return Ok(());
+        } else {
+            return Err(anyhow::anyhow!("Failed to force stop process {}", pid));
+        }
+    }
+    
+    // Graceful shutdown: Send SIGTERM first
+    info!("Sending SIGTERM to process {}...", pid);
+    let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
+    if result != 0 {
+        return Err(anyhow::anyhow!("Failed to send SIGTERM to process {}", pid));
+    }
+    
+    info!("SIGTERM sent successfully, waiting for graceful shutdown...");
+    
+    // Wait for graceful shutdown with timeout
+    let timeout_duration = std::time::Duration::from_secs(10);
+    let start_time = std::time::Instant::now();
+    
+    while start_time.elapsed() < timeout_duration {
+        // Check if process is still running
+        let check_result = unsafe { libc::kill(pid as i32, 0) };
+        if check_result != 0 {
+            // Process has stopped
+            let _ = std::fs::remove_file(pid_file);
+            info!("✅ FerraGate server stopped gracefully!");
+            return Ok(());
+        }
+        
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    }
+    
+    // If we reach here, graceful shutdown timed out
+    warn!("Graceful shutdown timed out, sending SIGKILL...");
+    let _ = unsafe { libc::kill(pid as i32, libc::SIGKILL) };
+    
+    let _ = std::fs::remove_file(pid_file);
+    info!("✅ FerraGate server stopped (forced after timeout)!");
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> Result<()> {
+    use std::process::Command;
+    
+    if force {
+        info!("Force stopping process {}...", pid);
+        let result = Command::new("taskkill")
+            .args(["/F", "/PID", &pid.to_string()])
+            .output();
+        
+        match result {
+            Ok(output) if output.status.success() => {
+                let _ = std::fs::remove_file(pid_file);
+                info!("✅ FerraGate server force-stopped successfully!");
+                return Ok(());
+            }
+            _ => {
+                return Err(anyhow::anyhow!("Failed to force stop process {}", pid));
+            }
+        }
+    }
+    
+    // Graceful shutdown on Windows (fallback to force stop after timeout)
+    info!("Stopping process {} gracefully...", pid);
+    let result = Command::new("taskkill")
+        .args(["/PID", &pid.to_string()])
+        .output();
+    
+    match result {
+        Ok(output) if output.status.success() => {
+            info!("Stop signal sent successfully, waiting for graceful shutdown...");
+            
+            // Wait for graceful shutdown with timeout
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            
+            // Force stop after timeout
+            warn!("Windows graceful shutdown timeout, force stopping...");
+            let _ = Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string()])
+                .output();
+            
+            let _ = std::fs::remove_file(pid_file);
+            info!("✅ FerraGate server stopped!");
+            Ok(())
+        }
+        _ => {
+            Err(anyhow::anyhow!("Failed to send stop signal to process {}", pid))
+        }
     }
 }
