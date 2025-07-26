@@ -165,7 +165,7 @@ pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> F
 
     // Write PID file for graceful shutdown
     let config_str = config_path.unwrap_or("gateway.toml");
-    let pid_file = format!("{}.pid", config_str);
+    let pid_file = format!("{config_str}.pid");
     if let Err(e) = write_pid_file(&pid_file) {
         warn!("Failed to write PID file {}: {}", pid_file, e);
     }
@@ -444,7 +444,7 @@ pub async fn stop_server(config_path: Option<&str>, force: bool) -> FerragateRes
     let config_str = config_path.unwrap_or("gateway.toml");
 
     // Try to find the PID file first
-    let pid_file = format!("{}.pid", config_str);
+    let pid_file = format!("{config_str}.pid");
 
     if !Path::new(&pid_file).exists() {
         info!("No PID file found. Server might not be running.");
@@ -550,8 +550,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateRe
             return Ok(());
         } else {
             return Err(FerragateError::server(format!(
-                "Failed to force stop process {}",
-                pid
+                "Failed to force stop process {pid}"
             )));
         }
     }
