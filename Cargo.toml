@@ -87,6 +87,18 @@ wiremock = "0.5"
 name = "ferragate"
 path = "src/main.rs"
 
+[[bench]]
+name = "route_benchmarks"
+harness = false
+
+[[bench]]
+name = "proxy_benchmarks"
+harness = false
+
+[[bench]]
+name = "health_benchmarks"
+harness = false
+
 [lib]
 name = "ferragate"
 path = "src/lib.rs"
