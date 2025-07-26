@@ -70,7 +70,7 @@ rcgen = { version = "0.12", optional = true }
 
 [dev-dependencies]
 # Testing framework
-axum-test = "15.0"
+axum-test = "17.3"
 tokio-test = "0.4"
 async-trait = "0.1"
 serial_test = "3.0"
