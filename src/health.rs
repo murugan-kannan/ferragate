@@ -5,6 +5,8 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info, instrument, warn};
 
+use crate::constants::*;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheck {
     pub name: String,
@@ -199,7 +201,7 @@ pub async fn health_handler(State(state): State<AppState>) -> (StatusCode, Json<
 
     match overall_status {
         HealthStatus::Healthy => debug!("Health check passed - all systems healthy"),
-        HealthStatus::Unhealthy => warn!("Health check failed - some systems unhealthy"),
+        HealthStatus::Unhealthy => warn!("{} - some systems unhealthy", MSG_HEALTH_CHECK_FAILED),
         HealthStatus::Unknown => warn!("Health check returned unknown status"),
     }
 
@@ -257,7 +259,7 @@ pub async fn readiness_handler(
 
     match status {
         HealthStatus::Healthy => debug!("Readiness check passed - application ready"),
-        HealthStatus::Unhealthy => warn!("Readiness check failed - application not ready"),
+        HealthStatus::Unhealthy => warn!("Readiness check failed - {}", MSG_SERVER_NOT_READY),
         HealthStatus::Unknown => warn!("Readiness check returned unknown status"),
     }
 

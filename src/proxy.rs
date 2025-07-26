@@ -4,28 +4,40 @@ use axum::{
     http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode, Uri},
     response::IntoResponse,
 };
+use bytes::Bytes;
 use http_body_util::BodyExt;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, instrument, warn};
 
 use crate::config::{GatewayConfig, RouteConfig};
+use crate::constants::*;
 
+/// State shared across all proxy handlers
+/// 
+/// Contains the gateway configuration and HTTP client for making upstream requests.
 #[derive(Clone)]
 pub struct ProxyState {
+    /// Gateway configuration (wrapped in Arc for shared ownership)
     pub config: Arc<GatewayConfig>,
+    /// HTTP client for upstream requests
     pub client: reqwest::Client,
 }
 
 impl ProxyState {
+    /// Create a new ProxyState with the given configuration
+    /// 
+    /// Sets up an HTTP client with appropriate timeouts and connection pooling.
     pub fn new(config: GatewayConfig) -> Self {
-        let timeout = Duration::from_millis(config.server.timeout_ms.unwrap_or(30000));
+        let timeout = Duration::from_millis(
+            config.server.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS)
+        );
 
         let client = reqwest::Client::builder()
             .timeout(timeout)
-            .pool_idle_timeout(Duration::from_secs(60))
-            .pool_max_idle_per_host(10)
-            .user_agent("FerraGate/0.1.0")
+            .pool_idle_timeout(Duration::from_secs(CLIENT_POOL_IDLE_TIMEOUT_SECS))
+            .pool_max_idle_per_host(CLIENT_POOL_MAX_IDLE_PER_HOST)
+            .user_agent(CLIENT_USER_AGENT)
             .build()
             .expect("Failed to create HTTP client");
 
@@ -35,6 +47,10 @@ impl ProxyState {
         }
     }
 
+    /// Find the first route that matches the given path and method
+    /// 
+    /// Routes are evaluated in the order they appear in the configuration.
+    /// Returns None if no matching route is found.
     pub fn find_matching_route(&self, path: &str, method: &str) -> Option<&RouteConfig> {
         self.config
             .routes
@@ -43,6 +59,13 @@ impl ProxyState {
     }
 }
 
+/// Main proxy handler for incoming requests
+/// 
+/// This function:
+/// 1. Finds a matching route for the request
+/// 2. Transforms the request for upstream forwarding
+/// 3. Executes the upstream request
+/// 4. Returns the upstream response to the client
 #[instrument(skip(state, body), fields(method = %method, uri = %uri))]
 pub async fn proxy_handler(
     State(state): State<ProxyState>,
@@ -54,64 +77,142 @@ pub async fn proxy_handler(
     let path = uri.path();
     let query = uri.query().unwrap_or("");
 
-    debug!("Incoming request: {} {}", method, uri);
+    debug!("Processing request: {} {}", method, uri);
 
     // Find matching route
-    let route = match state.find_matching_route(path, method.as_str()) {
-        Some(route) => {
-            debug!("Matched route: {} -> {}", route.path, route.upstream);
-            route
-        }
+    let route = match find_route_for_request(&state, path, method.as_str()) {
+        Some(route) => route,
         None => {
             warn!("No matching route found for: {} {}", method, path);
-            return (StatusCode::NOT_FOUND, "No matching route found").into_response();
+            return (StatusCode::NOT_FOUND, MSG_ROUTE_NOT_FOUND).into_response();
         }
     };
 
-    // Transform the path if needed
-    let target_path = route.transform_path(path);
+    debug!("Matched route: {} -> {}", route.path, route.upstream);
 
     // Build target URL
+    let target_url = build_target_url(route, path, query);
+    debug!("Proxying to: {}", target_url);
+
+    // Read request body
+    let body_bytes = match read_request_body(body).await {
+        Ok(bytes) => bytes,
+        Err(err_resp) => return err_resp,
+    };
+
+    // Create and configure upstream request
+    let request_builder = match create_upstream_request(
+        &state,
+        route,
+        &method,
+        &target_url,
+        &headers,
+        body_bytes,
+    ).await {
+        Ok(builder) => builder,
+        Err(err_resp) => return err_resp,
+    };
+
+    // Execute upstream request
+    let response = match execute_upstream_request(request_builder, &target_url).await {
+        Ok(response) => response,
+        Err(err_resp) => return err_resp,
+    };
+
+    // Process and return upstream response
+    process_upstream_response(response).await
+}
+
+/// Find a matching route for the given request
+fn find_route_for_request<'a>(state: &'a ProxyState, path: &str, method: &str) -> Option<&'a RouteConfig> {
+    state.find_matching_route(path, method)
+}
+
+/// Build the target URL for upstream forwarding
+fn build_target_url(route: &RouteConfig, path: &str, query: &str) -> String {
+    let target_path = route.transform_path(path);
     let mut target_url = format!("{}{}", route.upstream, target_path);
+    
     if !query.is_empty() {
         target_url.push('?');
         target_url.push_str(query);
     }
+    
+    target_url
+}
 
-    debug!("Proxying to: {}", target_url);
-
-    // Convert body to bytes
-    let body_bytes = match body.collect().await {
-        Ok(collected) => collected.to_bytes(),
+/// Read the request body from the incoming request
+async fn read_request_body(body: Body) -> Result<Bytes, axum::response::Response> {
+    match body.collect().await {
+        Ok(collected) => Ok(collected.to_bytes()),
         Err(e) => {
             error!("Failed to read request body: {}", e);
-            return (StatusCode::BAD_REQUEST, "Failed to read request body").into_response();
+            Err((StatusCode::BAD_REQUEST, MSG_INVALID_REQUEST_BODY).into_response())
         }
+    }
+}
+
+/// Create and configure the upstream request
+async fn create_upstream_request(
+    state: &ProxyState,
+    route: &RouteConfig,
+    method: &Method,
+    target_url: &str,
+    headers: &HeaderMap,
+    body_bytes: Bytes,
+) -> Result<reqwest::RequestBuilder, axum::response::Response> {
+    // Convert HTTP method
+    let reqwest_method = match convert_http_method(method) {
+        Ok(reqwest_method) => reqwest_method,
+        Err(err_resp) => return Err(err_resp),
     };
 
-    // Build the proxied request
-    let reqwest_method = match method.as_str() {
-        "GET" => reqwest::Method::GET,
-        "POST" => reqwest::Method::POST,
-        "PUT" => reqwest::Method::PUT,
-        "DELETE" => reqwest::Method::DELETE,
-        "HEAD" => reqwest::Method::HEAD,
-        "OPTIONS" => reqwest::Method::OPTIONS,
-        "PATCH" => reqwest::Method::PATCH,
-        _ => {
-            warn!("Unsupported HTTP method: {}", method);
-            return (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response();
-        }
-    };
-
+    // Create base request
     let mut request_builder = state
         .client
-        .request(reqwest_method, &target_url)
+        .request(reqwest_method, target_url)
         .body(body_bytes);
 
-    // Copy headers from the original request
+    // Add headers from original request
+    request_builder = add_forwarded_headers(request_builder, headers);
+
+    // Add custom headers from route configuration
+    request_builder = add_route_headers(request_builder, route);
+
+    // Handle Host header
+    request_builder = handle_host_header(request_builder, route, target_url);
+
+    // Apply timeout (route-specific or server default)
+    let server_default_timeout = state.config.server.timeout_ms.unwrap_or(DEFAULT_TIMEOUT_MS);
+    let effective_timeout_ms = route.effective_timeout(server_default_timeout);
+    request_builder = request_builder.timeout(Duration::from_millis(effective_timeout_ms));
+
+    Ok(request_builder)
+}
+
+/// Convert Axum HTTP method to reqwest method
+fn convert_http_method(method: &Method) -> Result<reqwest::Method, axum::response::Response> {
+    match method.as_str() {
+        "GET" => Ok(reqwest::Method::GET),
+        "POST" => Ok(reqwest::Method::POST),
+        "PUT" => Ok(reqwest::Method::PUT),
+        "DELETE" => Ok(reqwest::Method::DELETE),
+        "HEAD" => Ok(reqwest::Method::HEAD),
+        "OPTIONS" => Ok(reqwest::Method::OPTIONS),
+        "PATCH" => Ok(reqwest::Method::PATCH),
+        _ => {
+            warn!("Unsupported HTTP method: {}", method);
+            Err((StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response())
+        }
+    }
+}
+
+/// Add appropriate headers from the original request to the upstream request
+fn add_forwarded_headers(
+    mut request_builder: reqwest::RequestBuilder,
+    headers: &HeaderMap,
+) -> reqwest::RequestBuilder {
     for (name, value) in headers.iter() {
-        // Skip certain headers that shouldn't be forwarded
         let header_name = name.as_str().to_lowercase();
         if should_forward_header(&header_name) {
             if let Ok(header_value) = value.to_str() {
@@ -119,15 +220,28 @@ pub async fn proxy_handler(
             }
         }
     }
+    request_builder
+}
 
-    // Add custom headers from route configuration
+/// Add custom headers from route configuration
+fn add_route_headers(
+    mut request_builder: reqwest::RequestBuilder,
+    route: &RouteConfig,
+) -> reqwest::RequestBuilder {
     for (name, value) in &route.headers {
         request_builder = request_builder.header(name, value);
     }
+    request_builder
+}
 
-    // Preserve or modify the Host header
+/// Handle the Host header based on route configuration
+fn handle_host_header(
+    mut request_builder: reqwest::RequestBuilder,
+    route: &RouteConfig,
+    target_url: &str,
+) -> reqwest::RequestBuilder {
     if !route.preserve_host {
-        if let Ok(target_url_parsed) = url::Url::parse(&target_url) {
+        if let Ok(target_url_parsed) = url::Url::parse(target_url) {
             if let Some(host) = target_url_parsed.host_str() {
                 let host_header = if let Some(port) = target_url_parsed.port() {
                     format!("{}:{}", host, port)
@@ -138,34 +252,36 @@ pub async fn proxy_handler(
             }
         }
     }
+    request_builder
+}
 
-    // Apply route-specific timeout if configured
-    if let Some(timeout_ms) = route.timeout_ms {
-        request_builder = request_builder.timeout(Duration::from_millis(timeout_ms));
-    }
-
-    // Execute the request
-    let response = match request_builder.send().await {
-        Ok(response) => response,
+/// Execute the upstream request
+async fn execute_upstream_request(
+    request_builder: reqwest::RequestBuilder,
+    target_url: &str,
+) -> Result<reqwest::Response, axum::response::Response> {
+    match request_builder.send().await {
+        Ok(response) => {
+            debug!("Upstream response status: {}", response.status());
+            Ok(response)
+        }
         Err(e) => {
             error!("Failed to proxy request to {}: {}", target_url, e);
-            return (
-                StatusCode::BAD_GATEWAY,
-                format!("Failed to proxy request: {}", e),
-            )
-                .into_response();
+            Err((StatusCode::BAD_GATEWAY, format!("Failed to proxy request: {}", e)).into_response())
         }
-    };
+    }
+}
 
-    debug!("Upstream response status: {}", response.status());
-
-    // Build the response
+/// Process the upstream response and prepare it for the client
+async fn process_upstream_response(
+    response: reqwest::Response,
+) -> axum::response::Response {
+    // Convert status code
     let status = StatusCode::from_u16(response.status().as_u16())
         .unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
 
+    // Process response headers
     let mut response_headers = HeaderMap::new();
-
-    // Copy response headers
     for (name, value) in response.headers() {
         let header_name = name.as_str().to_lowercase();
         if should_forward_response_header(&header_name) {
@@ -178,34 +294,30 @@ pub async fn proxy_handler(
         }
     }
 
-    // Get response body
+    // Read response body
     let response_body = match response.bytes().await {
-        Ok(bytes) => bytes,
+        Ok(bytes) => {
+            debug!("Successfully proxied request, response size: {} bytes", bytes.len());
+            bytes
+        }
         Err(e) => {
             error!("Failed to read response body: {}", e);
             return (StatusCode::BAD_GATEWAY, "Failed to read response body").into_response();
         }
     };
 
-    debug!(
-        "Successfully proxied request, response size: {} bytes",
-        response_body.len()
-    );
-
-    // Return the response
     (status, response_headers, response_body).into_response()
 }
 
+
+
 fn should_forward_header(header_name: &str) -> bool {
+    // Check if header is in the filtered list
+    if FILTERED_HEADERS.contains(&header_name) {
+        return false;
+    }
+    
     match header_name {
-        // Don't forward connection-specific headers
-        "connection"
-        | "upgrade"
-        | "proxy-authenticate"
-        | "proxy-authorization"
-        | "te"
-        | "trailers"
-        | "transfer-encoding" => false,
         // Don't forward hop-by-hop headers
         "keep-alive" | "proxy-connection" => false,
         // Forward everything else
@@ -214,15 +326,12 @@ fn should_forward_header(header_name: &str) -> bool {
 }
 
 fn should_forward_response_header(header_name: &str) -> bool {
+    // Check if header is in the filtered list
+    if FILTERED_HEADERS.contains(&header_name) {
+        return false;
+    }
+    
     match header_name {
-        // Don't forward connection-specific headers
-        "connection"
-        | "upgrade"
-        | "proxy-authenticate"
-        | "proxy-authorization"
-        | "te"
-        | "trailers"
-        | "transfer-encoding" => false,
         // Don't forward hop-by-hop headers
         "keep-alive" | "proxy-connection" => false,
         // Forward everything else
@@ -232,7 +341,7 @@ fn should_forward_response_header(header_name: &str) -> bool {
 
 pub async fn handle_not_found() -> impl IntoResponse {
     debug!("404 Not Found response");
-    (StatusCode::NOT_FOUND, "Route not found")
+    (StatusCode::NOT_FOUND, MSG_ROUTE_NOT_FOUND)
 }
 
 #[cfg(test)]

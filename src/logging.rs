@@ -1,8 +1,15 @@
 use std::env;
 use tracing::info;
 use tracing_subscriber::{fmt::time::UtcTime, EnvFilter};
+use tracing_appender::{non_blocking, rolling};
 
-/// Configuration for the logging system
+use crate::constants::*;
+use crate::error::{FerragateError, FerragateResult};
+
+/// Configuration for the Ferragate logging system
+/// 
+/// Provides comprehensive logging configuration including level control,
+/// output formatting, and file logging options.
 #[derive(Debug, Clone)]
 pub struct LoggingConfig {
     /// Log level (trace, debug, info, warn, error)
@@ -22,83 +29,137 @@ pub struct LoggingConfig {
 impl Default for LoggingConfig {
     fn default() -> Self {
         Self {
-            level: env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
-            json_format: env::var("LOG_JSON")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
-            log_to_file: env::var("LOG_TO_FILE")
-                .unwrap_or_else(|_| "true".to_string())
-                .parse()
-                .unwrap_or(true),
-            log_dir: env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string()),
+            level: env::var("RUST_LOG").unwrap_or_else(|_| DEFAULT_LOG_LEVEL.to_string()),
+            json_format: parse_env_bool("LOG_JSON", false),
+            log_to_file: parse_env_bool("LOG_TO_FILE", true),
+            log_dir: env::var("LOG_DIR").unwrap_or_else(|_| DEFAULT_LOG_DIR.to_string()),
             log_file_prefix: env::var("LOG_FILE_PREFIX")
-                .unwrap_or_else(|_| "ferragate".to_string()),
-            include_location: env::var("LOG_INCLUDE_LOCATION")
-                .unwrap_or_else(|_| "false".to_string())
-                .parse()
-                .unwrap_or(false),
+                .unwrap_or_else(|_| DEFAULT_LOG_FILE_PREFIX.to_string()),
+            include_location: parse_env_bool("LOG_INCLUDE_LOCATION", false),
         }
     }
 }
 
+/// Parse a boolean environment variable with a default value
+fn parse_env_bool(var_name: &str, default: bool) -> bool {
+    env::var(var_name)
+        .unwrap_or_else(|_| default.to_string())
+        .parse()
+        .unwrap_or(default)
+}
+
 /// Initialize the logging system with the given configuration
-pub fn init_logging(config: LoggingConfig) -> anyhow::Result<()> {
-    // Create the log directory if it doesn't exist
+/// 
+/// Sets up tracing subscriber with the specified level, format, and output options.
+/// Handles cases where a global subscriber is already initialized (common in tests).
+pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
+    // Create the log directory if it doesn't exist and file logging is enabled
     if config.log_to_file {
-        std::fs::create_dir_all(&config.log_dir)?;
+        std::fs::create_dir_all(&config.log_dir)
+            .map_err(|e| FerragateError::io(format!("Failed to create log directory '{}': {}", config.log_dir, e)))?;
     }
 
-    // Create environment filter
+    // Create environment filter from configuration
     let env_filter = EnvFilter::try_from_default_env()
         .or_else(|_| EnvFilter::try_new(&config.level))
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+        .unwrap_or_else(|_| {
+            eprintln!("Warning: Invalid log level '{}', using 'info'", config.level);
+            EnvFilter::new("info")
+        });
 
-    let builder = tracing_subscriber::fmt()
-        .with_timer(UtcTime::rfc_3339())
-        .with_target(true)
-        .with_file(config.include_location)
-        .with_line_number(config.include_location)
-        .with_env_filter(env_filter);
-
-    let result = if config.json_format {
-        builder.json().try_init()
+    // Set up the subscriber based on whether file logging is enabled
+    let result = if config.log_to_file {
+        // Create file appender with daily rotation using the prefix
+        let file_appender = rolling::daily(&config.log_dir, &config.log_file_prefix);
+        let (non_blocking_appender, _guard) = non_blocking(file_appender);
+        
+        // We need to keep the guard alive for the lifetime of the program
+        // In a real application, you'd want to store this somewhere
+        std::mem::forget(_guard);
+        
+        if config.json_format {
+            // For JSON format, we can only do file OR console due to type constraints
+            // Prioritize file logging for JSON format
+            tracing_subscriber::fmt()
+                .with_timer(UtcTime::rfc_3339())
+                .with_target(true)
+                .with_file(config.include_location)
+                .with_line_number(config.include_location)
+                .with_writer(non_blocking_appender)
+                .with_ansi(false) // No ANSI in files
+                .with_env_filter(env_filter)
+                .json()
+                .try_init()
+        } else {
+            // For non-JSON format, we can use a tee writer to write to both
+            use tracing_subscriber::fmt::writer::MakeWriterExt;
+            
+            // Create a tee writer that writes to both stdout and file
+            let tee_writer = non_blocking_appender.and(std::io::stdout);
+            
+            tracing_subscriber::fmt()
+                .with_timer(UtcTime::rfc_3339())
+                .with_target(true)
+                .with_file(config.include_location)
+                .with_line_number(config.include_location)
+                .with_writer(tee_writer)
+                .with_ansi(false) // Disable ANSI to keep files clean (console will lose colors as tradeoff)
+                .with_env_filter(env_filter)
+                .try_init()
+        }
     } else {
-        builder.try_init()
+        // Console-only logging with ANSI colors
+        let builder = tracing_subscriber::fmt()
+            .with_timer(UtcTime::rfc_3339())
+            .with_target(true)
+            .with_file(config.include_location)
+            .with_line_number(config.include_location)
+            .with_ansi(true) // Enable ANSI colors for console
+            .with_env_filter(env_filter);
+
+        if config.json_format {
+            builder.json().try_init()
+        } else {
+            builder.try_init()
+        }
     };
 
-    // Handle the case where a global subscriber is already set
+    // Handle initialization result
     match result {
-        Ok(()) => {}
+        Ok(()) => {
+            // Log successful initialization
+            if config.log_to_file {
+                info!(
+                    "Logging initialized: level={}, json={}, file_dir={}, file_prefix={}",
+                    config.level, config.json_format, config.log_dir, config.log_file_prefix
+                );
+            } else {
+                info!(
+                    "Logging initialized: level={}, json={}",
+                    config.level, config.json_format
+                );
+            }
+        }
         Err(e) => {
             if e.to_string().contains("already been set") {
                 // Subscriber already set, which is okay for tests
-                // Just log a debug message if possible
                 eprintln!("Warning: Global subscriber already set: {}", e);
             } else {
-                return Err(anyhow::anyhow!("Failed to initialize logging: {}", e));
+                return Err(FerragateError::config(format!("Failed to initialize logging: {}", e)));
             }
         }
-    }
-
-    // If file logging is enabled, we'll set up a separate file appender
-    if config.log_to_file {
-        // Note: For simplicity, we're not implementing dual output (console + file) in this version
-        // This would require a more complex subscriber setup with layered outputs
-        // For now, we'll just log a message about the file logging configuration
-
-        info!(
-            "File logging configured: {}/{} (requires custom subscriber setup)",
-            config.log_dir, config.log_file_prefix
-        );
     }
 
     Ok(())
 }
 
 /// Initialize logging with default configuration
-pub fn init_default_logging() -> anyhow::Result<()> {
-    init_logging(LoggingConfig::default())
+/// 
+/// Convenience function that creates a default logging configuration and initializes the system.
+/// This is the function used by the main application for simple setup.
+pub fn init_default_logging() -> FerragateResult<()> {
+    let config = LoggingConfig::default();
+    init_logging(config)
 }
 
 /// Create a structured logging context for request tracing
@@ -409,5 +470,33 @@ mod tests {
         let result = init_logging(config);
         // Either succeeds or fails with "already set" error
         assert!(result.is_ok() || result.unwrap_err().to_string().contains("already been set"));
+    }
+
+    #[test]
+    fn test_file_logging_with_prefix() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_str().unwrap().to_string();
+        let custom_prefix = "test_ferragate";
+
+        let config = LoggingConfig {
+            level: "info".to_string(),
+            json_format: false,
+            log_to_file: true,
+            log_dir: log_dir.clone(),
+            log_file_prefix: custom_prefix.to_string(),
+            include_location: false,
+        };
+
+        let result = init_logging(config);
+        // Either succeeds or fails with "already set" error
+        assert!(result.is_ok() || result.unwrap_err().to_string().contains("already been set"));
+
+        // Verify the log directory was created
+        assert!(std::path::Path::new(&log_dir).exists());
+
+        // Note: The actual log file creation happens when logs are written
+        // and uses the format {prefix}.{date} (e.g., test_ferragate.2023-12-01)
+        // Since we can't predict the exact filename without writing logs,
+        // we just verify the directory exists and the config is properly used
     }
 }

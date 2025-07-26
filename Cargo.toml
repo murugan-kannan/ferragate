@@ -32,6 +32,7 @@ tower-http = { version = "0.5", features = ["trace", "cors", "compression-gzip"]
 hyper = { version = "1.0", features = ["full"] }
 hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
+bytes = "1.0"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
@@ -50,6 +51,7 @@ clap = { version = "4.0", features = ["derive", "env"] }
 url = "2.5"
 chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1.0"
+thiserror = "1.0"
 
 # HTTP client for health checks and proxying
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }

@@ -1,4 +1,3 @@
-use anyhow::Result;
 use axum::{
     extract::Request,
     response::Redirect,
@@ -14,11 +13,13 @@ use std::path::Path;
 
 #[cfg_attr(not(test), allow(unused_imports))]
 use crate::config::{GatewayConfig, LoggingConfig, RouteConfig, ServerConfig};
+use crate::constants::*;
+use crate::error::{FerragateError, FerragateResult};
 use crate::health::{health_handler, liveness_handler, readiness_handler, AppState};
 use crate::proxy::{handle_not_found, proxy_handler, ProxyState};
 use crate::tls;
 
-fn write_pid_file(path: &str) -> Result<()> {
+fn write_pid_file(path: &str) -> FerragateResult<()> {
     use std::fs;
     let pid = std::process::id();
     fs::write(path, pid.to_string())?;
@@ -29,13 +30,13 @@ fn write_pid_file(path: &str) -> Result<()> {
 fn get_control_socket_path(config_path: &str) -> String {
     #[cfg(unix)]
     {
-        format!("/tmp/ferragate_{}.sock", 
+        format!("{}{}.sock", CONTROL_SOCKET_PREFIX,
             config_path.replace(['/', '\\', '.'], "_"))
     }
     #[cfg(windows)]
     {
         // On Windows, we'll use a named pipe approach
-        format!("ferragate_{}", 
+        format!("{}{}", CONTROL_SOCKET_PREFIX,
             config_path.replace(['/', '\\', '.', ':'], "_"))
     }
 }
@@ -44,7 +45,7 @@ fn get_control_socket_path(config_path: &str) -> String {
 async fn start_control_socket_listener(
     socket_path: String, 
     shutdown_token: CancellationToken
-) -> Result<()> {
+) -> FerragateResult<()> {
     use tokio::net::UnixListener;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -69,7 +70,7 @@ async fn start_control_socket_listener(
                         
                         let shutdown_token_clone = shutdown_token.clone();
                         tokio::spawn(async move {
-                            let mut buffer = [0u8; 1024];
+                            let mut buffer = [0u8; CONTROL_SOCKET_BUFFER_SIZE];
                             match stream.read(&mut buffer).await {
                                 Ok(n) => {
                                     let command = String::from_utf8_lossy(&buffer[..n]);
@@ -110,7 +111,7 @@ async fn start_control_socket_listener(
 async fn start_control_socket_listener(
     _socket_path: String, 
     shutdown_token: CancellationToken
-) -> Result<()> {
+) -> FerragateResult<()> {
     // For Windows, we'll use a simpler file-based approach for now
     // This could be enhanced with named pipes in the future
     info!("Control socket not yet implemented on Windows, using signal-only shutdown");
@@ -150,8 +151,8 @@ async fn shutdown_signal(shutdown_token: CancellationToken) {
     }
 }
 
-pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> Result<()> {
-    info!("Starting FerraGate API Gateway v0.1.0");
+pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> FerragateResult<()> {
+    info!("{}", LOG_SERVER_STARTING);
 
     // Create a shutdown token for graceful shutdown coordination
     let shutdown_token = CancellationToken::new();
@@ -256,6 +257,8 @@ pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> R
     shutdown_token.cancel();
     let _ = socket_handle.await;
 
+    info!("{}", LOG_SERVER_SHUTDOWN);
+
     // Clean up PID file on shutdown
     if let Err(e) = std::fs::remove_file(&pid_file) {
         warn!("Failed to remove PID file {}: {}", pid_file, e);
@@ -266,7 +269,7 @@ pub async fn start_server(config: GatewayConfig, config_path: Option<&str>) -> R
     Ok(())
 }
 
-async fn start_http_server(config: GatewayConfig, app: Router) -> Result<()> {
+async fn start_http_server(config: GatewayConfig, app: Router) -> FerragateResult<()> {
     let addr = SocketAddr::from((
         config
             .server
@@ -304,12 +307,12 @@ async fn start_http_server(config: GatewayConfig, app: Router) -> Result<()> {
     Ok(())
 }
 
-async fn start_https_server(config: GatewayConfig, app: Router) -> Result<()> {
+async fn start_https_server(config: GatewayConfig, app: Router) -> FerragateResult<()> {
     let tls_config = config
         .server
         .tls
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("TLS configuration not found"))?;
+        .ok_or_else(|| FerragateError::config("TLS configuration not found"))?;
 
     let addr = SocketAddr::from((
         config
@@ -393,9 +396,9 @@ fn create_redirect_router(https_port: u16) -> Router {
 fn create_router_with_states(proxy_state: ProxyState, health_state: AppState) -> Router {
     Router::new()
         // Health endpoints (using health state)
-        .route("/health", get(health_handler))
-        .route("/health/live", get(liveness_handler))
-        .route("/health/ready", get(readiness_handler))
+        .route(HEALTH_ENDPOINT, get(health_handler))
+        .route(LIVENESS_ENDPOINT, get(liveness_handler))
+        .route(READINESS_ENDPOINT, get(readiness_handler))
         .with_state(health_state)
         // Proxy routes (using proxy state)
         .route("/*path", any(proxy_handler))
@@ -416,9 +419,9 @@ fn log_routes_info(config: &GatewayConfig) {
 fn log_health_endpoints(addr: &SocketAddr, is_https: bool) {
     let protocol = if is_https { "https" } else { "http" };
     info!("🏥 Health endpoints:");
-    info!("   - Health: {}://{}/health", protocol, addr);
-    info!("   - Liveness: {}://{}/health/live", protocol, addr);
-    info!("   - Readiness: {}://{}/health/ready", protocol, addr);
+    info!("   - Health: {}://{}{}", protocol, addr, HEALTH_ENDPOINT);
+    info!("   - Liveness: {}://{}{}", protocol, addr, LIVENESS_ENDPOINT);
+    info!("   - Readiness: {}://{}{}", protocol, addr, READINESS_ENDPOINT);
     info!("🔧 Background health checks running every 30 seconds");
 }
 
@@ -562,12 +565,12 @@ mod tests {
             .server
             .tls
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("TLS configuration not found"));
+            .ok_or_else(|| FerragateError::config("TLS configuration not found"));
 
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err().to_string(),
-            "TLS configuration not found"
+            "Configuration error: TLS configuration not found"
         );
     }
 
@@ -1174,7 +1177,7 @@ mod tests {
 }
 
 /// Stop a running FerraGate server gracefully using control socket
-pub async fn stop_server(config_path: Option<&str>, force: bool) -> Result<()> {
+pub async fn stop_server(config_path: Option<&str>, force: bool) -> FerragateResult<()> {
     info!("Attempting to stop FerraGate server...");
 
     let config_str = config_path.unwrap_or("gateway.toml");
@@ -1210,7 +1213,7 @@ pub async fn stop_server(config_path: Option<&str>, force: bool) -> Result<()> {
 }
 
 #[cfg(unix)]
-async fn send_shutdown_command(socket_path: &str, _force: bool) -> Result<()> {
+async fn send_shutdown_command(socket_path: &str, _force: bool) -> FerragateResult<()> {
     use tokio::net::UnixStream;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -1221,7 +1224,7 @@ async fn send_shutdown_command(socket_path: &str, _force: bool) -> Result<()> {
     stream.write_all(b"shutdown").await?;
     
     // Read response
-    let mut buffer = [0u8; 1024];
+    let mut buffer = [0u8; CONTROL_SOCKET_BUFFER_SIZE];
     let n = stream.read(&mut buffer).await?;
     let response = String::from_utf8_lossy(&buffer[..n]);
     
@@ -1229,17 +1232,17 @@ async fn send_shutdown_command(socket_path: &str, _force: bool) -> Result<()> {
         info!("Shutdown command sent successfully: {}", response.trim());
         Ok(())
     } else {
-        Err(anyhow::anyhow!("Unexpected response: {}", response.trim()))
+        Err(FerragateError::server(format!("Unexpected response: {}", response.trim())))
     }
 }
 
 #[cfg(windows)]
-async fn send_shutdown_command(_socket_path: &str, _force: bool) -> Result<()> {
+async fn send_shutdown_command(_socket_path: &str, _force: bool) -> FerragateResult<()> {
     // For Windows, we don't have Unix sockets, so we'll fall back to PID-based shutdown
-    Err(anyhow::anyhow!("Control socket not supported on Windows"))
+    Err(FerragateError::server("Control socket not supported on Windows"))
 }
 
-async fn stop_server_by_pid(pid_file: &str, force: bool) -> Result<()> {
+async fn stop_server_by_pid(pid_file: &str, force: bool) -> FerragateResult<()> {
     use std::fs;
     
     if let Ok(pid_content) = fs::read_to_string(pid_file) {
@@ -1259,11 +1262,11 @@ async fn stop_server_by_pid(pid_file: &str, force: bool) -> Result<()> {
         }
     }
     
-    Err(anyhow::anyhow!("Could not read or parse PID file"))
+    Err(FerragateError::server("Could not read or parse PID file"))
 }
 
 #[cfg(unix)]
-async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> Result<()> {
+async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> FerragateResult<()> {
     // Check if process exists first
     let check_result = unsafe { libc::kill(pid as i32, 0) };
     if check_result != 0 {
@@ -1280,7 +1283,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> Result<()> 
             info!("✅ FerraGate server force-stopped successfully!");
             return Ok(());
         } else {
-            return Err(anyhow::anyhow!("Failed to force stop process {}", pid));
+            return Err(FerragateError::server(format!("Failed to force stop process {}", pid)));
         }
     }
     
@@ -1288,7 +1291,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> Result<()> 
     info!("Sending SIGTERM to process {}...", pid);
     let result = unsafe { libc::kill(pid as i32, libc::SIGTERM) };
     if result != 0 {
-        return Err(anyhow::anyhow!("Failed to send SIGTERM to process {}", pid));
+        return Err(FerragateError::server(format!("Failed to send SIGTERM to process {}", pid)));
     }
     
     info!("SIGTERM sent successfully, waiting for graceful shutdown...");
@@ -1320,7 +1323,7 @@ async fn stop_unix_process(pid: u32, force: bool, pid_file: &str) -> Result<()> 
 }
 
 #[cfg(windows)]
-async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> Result<()> {
+async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> FerragateResult<()> {
     use std::process::Command;
     
     if force {
@@ -1336,7 +1339,7 @@ async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> Result<(
                 return Ok(());
             }
             _ => {
-                return Err(anyhow::anyhow!("Failed to force stop process {}", pid));
+                return Err(FerragateError::server(format!("Failed to force stop process {}", pid)));
             }
         }
     }
@@ -1365,7 +1368,7 @@ async fn stop_windows_process(pid: u32, force: bool, pid_file: &str) -> Result<(
             Ok(())
         }
         _ => {
-            Err(anyhow::anyhow!("Failed to send stop signal to process {}", pid))
+            Err(FerragateError::server(format!("Failed to send stop signal to process {}", pid)))
         }
     }
 }

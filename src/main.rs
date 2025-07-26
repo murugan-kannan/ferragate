@@ -1,5 +1,7 @@
 mod cli;
 mod config;
+mod constants;
+mod error;
 mod health;
 mod logging;
 mod proxy;
@@ -8,22 +10,34 @@ mod tls;
 
 use cli::Cli;
 use logging::init_default_logging;
-use tracing::error;
+use tracing::{error, info};
 
-pub async fn run_app() -> anyhow::Result<()> {
-    // Initialize logging system
+use crate::error::{FerragateError, FerragateResult};
+
+/// Main application entry point
+/// 
+/// Initializes logging, parses CLI arguments, and executes the requested command.
+/// Returns early on any initialization errors.
+pub async fn run_app() -> FerragateResult<()> {
+    // Initialize logging system first
     if let Err(e) = init_default_logging() {
         eprintln!("Failed to initialize logging: {}", e);
         return Err(e);
     }
 
-    // Parse CLI arguments and execute
+    info!("Starting Ferragate API Gateway");
+
+    // Parse CLI arguments and execute the requested command
     let cli = Cli::parse_args();
     cli.execute().await
 }
 
+/// Application main function
+/// 
+/// Sets up the Tokio async runtime and handles top-level error reporting.
+/// Exits with code 1 on any application errors.
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> FerragateResult<()> {
     if let Err(e) = run_app().await {
         error!("Application error: {}", e);
         std::process::exit(1);
@@ -85,14 +99,14 @@ mod tests {
         // But we can test the error handling pattern
 
         // Test that eprintln! and error return work as expected
-        let test_error = anyhow::anyhow!("Simulated logging initialization error");
+        let test_error = FerragateError::validation("Simulated logging initialization error");
 
         // Simulate the error handling in run_app
         let error_msg = format!("Failed to initialize logging: {}", test_error);
         assert!(!error_msg.is_empty());
 
         // Test that we can return the error as done in run_app
-        let result: anyhow::Result<()> = Err(test_error);
+        let result: FerragateResult<()> = Err(test_error);
         assert!(result.is_err());
     }
 
@@ -104,7 +118,7 @@ mod tests {
         // We can't call main() directly due to process::exit, but we can test its logic
 
         // Simulate successful run_app() result
-        let app_result: anyhow::Result<()> = Ok(());
+        let app_result: FerragateResult<()> = Ok(());
 
         match app_result {
             Ok(()) => {
@@ -122,8 +136,8 @@ mod tests {
         ensure_logging_init();
 
         // Test the error handling path in main() function
-        let app_error = anyhow::anyhow!("Simulated application error");
-        let app_result: anyhow::Result<()> = Err(app_error);
+        let app_error = FerragateError::server("Simulated application error");
+        let app_result: FerragateResult<()> = Err(app_error);
 
         match app_result {
             Ok(()) => {
@@ -205,11 +219,11 @@ mod tests {
     fn test_error_propagation_patterns() {
         // Test the error propagation patterns used in main.rs
 
-        // Test anyhow::Result usage
-        let success_result: anyhow::Result<()> = Ok(());
+        // Test FerragateResult usage
+        let success_result: FerragateResult<()> = Ok(());
         assert!(success_result.is_ok());
 
-        let error_result: anyhow::Result<()> = Err(anyhow::anyhow!("Test error"));
+        let error_result: FerragateResult<()> = Err(FerragateError::server("Test error"));
         assert!(error_result.is_err());
 
         // Test error logging pattern
@@ -271,7 +285,7 @@ mod tests {
         // Test that the #[tokio::main] attribute properly sets up async runtime
 
         // This test verifies that async functions can be called in the main context
-        async fn dummy_async_fn() -> anyhow::Result<()> {
+        async fn dummy_async_fn() -> FerragateResult<()> {
             Ok(())
         }
 
@@ -294,14 +308,14 @@ mod tests {
         // This simulates the complete main function flow
 
         // Simulate calling run_app() and handling its result
-        async fn mock_run_app_success() -> anyhow::Result<()> {
+        async fn mock_run_app_success() -> FerragateResult<()> {
             // Simulate successful app execution
             Ok(())
         }
 
-        async fn mock_run_app_error() -> anyhow::Result<()> {
+        async fn mock_run_app_error() -> FerragateResult<()> {
             // Simulate app error
-            Err(anyhow::anyhow!("Mock application error"))
+            Err(FerragateError::server("Mock application error"))
         }
 
         // Test success path
@@ -376,8 +390,8 @@ mod tests {
                 let error_msg = format!("Failed to initialize logging: {}", e);
                 assert!(error_msg.contains("Failed to initialize logging"));
 
-                // Test that we can create and return anyhow errors (like in run_app)
-                let _test_error: anyhow::Result<()> = Err(e);
+                // Test that we can create and return FerragateResult errors (like in run_app)
+                let _test_error: FerragateResult<()> = Err(e);
             }
         }
     }
@@ -390,7 +404,7 @@ mod tests {
         // We can't actually call main() but we can test its error handling logic
 
         // Simulate an error result like run_app() might return
-        let simulated_error: anyhow::Result<()> = Err(anyhow::anyhow!("Simulated app error"));
+        let simulated_error: FerragateResult<()> = Err(FerragateError::server("Simulated app error"));
 
         // Test the error handling pattern from main()
         match simulated_error {
@@ -414,7 +428,7 @@ mod tests {
     #[test]
     fn test_main_success_path() {
         // Test the success path logic in main()
-        let simulated_success: anyhow::Result<()> = Ok(());
+        let simulated_success: FerragateResult<()> = Ok(());
 
         match simulated_success {
             Ok(()) => {
@@ -442,8 +456,8 @@ mod tests {
         let _ = init_default_logging();
 
         // Test anyhow Result types that run_app returns
-        let _success: anyhow::Result<()> = Ok(());
-        let _error: anyhow::Result<()> = Err(anyhow::anyhow!("test"));
+        let _success: FerragateResult<()> = Ok(());
+        let _error: FerragateResult<()> = Err(FerragateError::server("test"));
 
         assert!(true);
     }
@@ -472,7 +486,7 @@ mod tests {
                 assert!(!error_message.is_empty());
 
                 // Test returning the error (as done in run_app)
-                let _error_result: anyhow::Result<()> = Err(e);
+                let _error_result: FerragateResult<()> = Err(e);
                 assert!(true);
             }
         }
@@ -632,11 +646,11 @@ mod tests {
         // Initialize logging first
         let _ = init_default_logging();
 
-        // Test that anyhow::Result is properly used
-        let test_result: anyhow::Result<()> = Ok(());
+        // Test that FerragateResult is properly used
+        let test_result: FerragateResult<()> = Ok(());
         assert!(test_result.is_ok());
 
-        let test_error: anyhow::Result<()> = Err(anyhow::anyhow!("Test error"));
+        let test_error: FerragateResult<()> = Err(FerragateError::server("Test error"));
         assert!(test_error.is_err());
     }
 
@@ -657,7 +671,7 @@ mod tests {
         error!("Test error for main function dependency");
 
         // Test anyhow Result type
-        let _result: anyhow::Result<()> = Ok(());
+        let _result: FerragateResult<()> = Ok(());
 
         assert!(true);
     }
@@ -694,7 +708,7 @@ mod tests {
                 eprintln!("{}", error_msg); // This matches the eprintln! in run_app
 
                 // Test that we can return the error as done in run_app
-                let _result: anyhow::Result<()> = Err(e);
+                let _result: FerragateResult<()> = Err(e);
                 assert!(true);
             }
         }
@@ -708,7 +722,7 @@ mod tests {
         let rt = tokio::runtime::Runtime::new().unwrap();
 
         // Test the error handling pattern used in main()
-        let mock_app_result: anyhow::Result<()> = Err(anyhow::anyhow!("Test application error"));
+        let mock_app_result: FerragateResult<()> = Err(FerragateError::server("Test application error"));
 
         rt.block_on(async {
             match mock_app_result {
@@ -738,11 +752,11 @@ mod tests {
 
         rt.block_on(async {
             // Simulate the async main function calling run_app
-            async fn mock_main_execution() -> anyhow::Result<()> {
+            async fn mock_main_execution() -> FerragateResult<()> {
                 // This simulates what happens in the actual main function
 
                 // Call to run_app() - we simulate its behavior
-                async fn mock_run_app() -> anyhow::Result<()> {
+                async fn mock_run_app() -> FerragateResult<()> {
                     // Step 1: Initialize logging (first line of run_app)
                     if let Err(e) = init_default_logging() {
                         eprintln!("Failed to initialize logging: {}", e);

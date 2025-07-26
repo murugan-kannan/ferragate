@@ -1,79 +1,85 @@
-use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use tracing::{error, info};
 
 use crate::config::GatewayConfig;
+use crate::constants::*;
+use crate::error::{FerragateError, FerragateResult};
 
+/// Ferragate API Gateway CLI
+/// 
+/// A high-performance, multi-tenant API Gateway built in Rust.
+/// Provides secure, scalable routing and load balancing for your services.
 #[derive(Parser)]
 #[command(name = env!("CARGO_PKG_NAME"))]
 #[command(about = env!("CARGO_PKG_DESCRIPTION"))]
 #[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 }
 
+/// Available CLI commands
 #[derive(Subcommand)]
 pub enum Commands {
     /// Start the gateway server
     Start {
         /// Configuration file path
-        #[arg(short, long, default_value = "gateway.toml")]
+        #[arg(short, long, default_value = DEFAULT_CONFIG_FILE)]
         config: PathBuf,
 
-        /// Override server host
-        #[arg(long)]
+        /// Override server host address
+        #[arg(long, help = "Override the host address from config")]
         host: Option<String>,
 
         /// Override server port
-        #[arg(short, long)]
+        #[arg(short, long, help = "Override the port from config")]
         port: Option<u16>,
     },
 
     /// Validate configuration file
     Validate {
         /// Configuration file path
-        #[arg(short, long, default_value = "gateway.toml")]
+        #[arg(short, long, default_value = DEFAULT_CONFIG_FILE)]
         config: PathBuf,
     },
 
-    /// Generate example configuration
+    /// Generate example configuration file
     Init {
         /// Output configuration file path
-        #[arg(short, long, default_value = "gateway.toml")]
+        #[arg(short, long, default_value = DEFAULT_CONFIG_FILE)]
         output: PathBuf,
 
         /// Overwrite existing file
-        #[arg(long)]
+        #[arg(long, help = "Overwrite the file if it already exists")]
         force: bool,
     },
 
-    /// Generate TLS certificates
+    /// Generate TLS certificates for HTTPS
     GenCerts {
         /// Certificate output directory
-        #[arg(short, long, default_value = "certs")]
+        #[arg(short, long, default_value = DEFAULT_CERT_DIR)]
         output_dir: PathBuf,
 
-        /// Hostname for the certificate
-        #[arg(long, default_value = "localhost")]
+        /// Hostname for the certificate (default: localhost)
+        #[arg(long, default_value = DEFAULT_HOSTNAME)]
         hostname: String,
 
         /// Overwrite existing certificates
-        #[arg(long)]
+        #[arg(long, help = "Overwrite existing certificate files")]
         force: bool,
     },
 
     /// Stop the running gateway server
     Stop {
         /// Configuration file path (to identify the correct server instance)
-        #[arg(short, long, default_value = "gateway.toml")]
+        #[arg(short, long, default_value = DEFAULT_CONFIG_FILE)]
         config: PathBuf,
 
         /// Force stop (kill process immediately)
-        #[arg(long)]
-        force: bool,
-    },
+        #[arg(long, help = "Force immediate shutdown without graceful stop")]
+        force: bool,    },
 }
 
 impl Cli {
@@ -81,9 +87,14 @@ impl Cli {
         Self::parse()
     }
 
-    pub async fn execute(self) -> Result<()> {
+    /// Execute the CLI command
+    /// 
+    /// Dispatches to the appropriate handler function based on the command type.
+    pub async fn execute(self) -> FerragateResult<()> {
         match self.command {
-            Commands::Start { config, host, port } => start_server(config, host, port).await,
+            Commands::Start { config, host, port } => {
+                start_server(config, host, port).await
+            }
             Commands::Validate { config } => validate_config(config),
             Commands::Init { output, force } => init_config(output, force),
             Commands::GenCerts {
@@ -100,10 +111,10 @@ async fn start_server(
     config_path: PathBuf,
     host_override: Option<String>,
     port_override: Option<u16>,
-) -> Result<()> {
+) -> FerragateResult<()> {
     info!("Starting FerraGate server...");
 
-    let mut config = GatewayConfig::from_file(config_path.to_str().unwrap_or("gateway.toml"))?;
+    let mut config = GatewayConfig::from_file(config_path.to_str().unwrap_or(DEFAULT_CONFIG_FILE))?;
 
     // Apply CLI overrides
     if let Some(host) = host_override {
@@ -120,10 +131,10 @@ async fn start_server(
     crate::server::start_server(config, config_path.to_str()).await
 }
 
-fn validate_config(config_path: PathBuf) -> Result<()> {
+fn validate_config(config_path: PathBuf) -> FerragateResult<()> {
     info!("Validating configuration...");
 
-    let config = GatewayConfig::from_file(config_path.to_str().unwrap_or("gateway.toml"))?;
+    let config = GatewayConfig::from_file(config_path.to_str().unwrap_or(DEFAULT_CONFIG_FILE))?;
 
     info!("✅ Configuration is valid!");
     info!("Server: {}:{}", config.server.host, config.server.port);
@@ -136,13 +147,13 @@ fn validate_config(config_path: PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn init_config(output_path: PathBuf, force: bool) -> Result<()> {
-    let path_str = output_path.to_str().unwrap_or("gateway.toml");
+fn init_config(output_path: PathBuf, force: bool) -> FerragateResult<()> {
+    let path_str = output_path.to_str().unwrap_or(DEFAULT_CONFIG_FILE);
 
     if output_path.exists() && !force {
         error!("Configuration file already exists: {}", path_str);
         error!("Use --force to overwrite the existing file");
-        return Err(anyhow::anyhow!("File already exists"));
+        return Err(FerragateError::validation("File already exists"));
     }
 
     info!("Generating example configuration...");
@@ -153,14 +164,14 @@ fn init_config(output_path: PathBuf, force: bool) -> Result<()> {
     Ok(())
 }
 
-fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Result<()> {
+fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> FerragateResult<()> {
     info!("Generating TLS certificates...");
 
     // Create output directory if it doesn't exist
     std::fs::create_dir_all(&output_dir)?;
 
-    let cert_path = output_dir.join("server.crt");
-    let key_path = output_dir.join("server.key");
+    let cert_path = output_dir.join(&format!("server{}", CERT_FILE_EXTENSION));
+    let key_path = output_dir.join(&format!("server{}", KEY_FILE_EXTENSION));
 
     // Check if certificates already exist
     if (cert_path.exists() || key_path.exists()) && !force {
@@ -169,7 +180,7 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Result<
             output_dir.display()
         );
         error!("Use --force to overwrite existing certificates");
-        return Err(anyhow::anyhow!("Certificates already exist"));
+        return Err(FerragateError::validation("Certificates already exist"));
     }
 
     crate::tls::create_self_signed_cert(
@@ -183,7 +194,7 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Result<
     info!("Private key: {}", key_path.display());
     info!("Hostname: {}", hostname);
     info!("");
-    info!("To enable HTTPS, update your gateway.toml:");
+    info!("To enable HTTPS, update your {}:", DEFAULT_CONFIG_FILE);
     info!("[server.tls]");
     info!("enabled = true");
     info!("cert_file = \"{}\"", cert_path.display());
@@ -192,7 +203,7 @@ fn generate_certs(output_dir: PathBuf, hostname: String, force: bool) -> Result<
     Ok(())
 }
 
-async fn stop_server(config_path: PathBuf, force: bool) -> Result<()> {
+async fn stop_server(config_path: PathBuf, force: bool) -> FerragateResult<()> {
     // Delegate to server module - CLI should not contain business logic
     crate::server::stop_server(config_path.to_str(), force).await
 }
@@ -955,7 +966,8 @@ methods = ["GET"]
 
         let result = validate_config(config_path);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("empty path"));
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("Route path cannot be empty"));
     }
 
     #[test]
