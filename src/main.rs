@@ -12,7 +12,7 @@ use cli::Cli;
 use logging::init_default_logging;
 use tracing::{error, info};
 
-use crate::error::{FerragateError, FerragateResult};
+use crate::error::FerragateResult;
 
 /// Main application entry point
 /// 
