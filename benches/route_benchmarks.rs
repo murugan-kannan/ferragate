@@ -37,7 +37,7 @@ fn create_test_config() -> GatewayConfig {
 
 fn benchmark_route_matching(c: &mut Criterion) {
     let config = create_test_config();
-    
+
     c.bench_function("route_matching_exact", |b| {
         b.iter(|| {
             for route in &config.routes {
@@ -45,7 +45,7 @@ fn benchmark_route_matching(c: &mut Criterion) {
             }
         })
     });
-    
+
     c.bench_function("route_matching_wildcard", |b| {
         b.iter(|| {
             for route in &config.routes {
@@ -53,7 +53,7 @@ fn benchmark_route_matching(c: &mut Criterion) {
             }
         })
     });
-    
+
     c.bench_function("route_matching_method", |b| {
         b.iter(|| {
             for route in &config.routes {
@@ -73,7 +73,7 @@ fn benchmark_path_transformation(c: &mut Criterion) {
         preserve_host: false,
         timeout_ms: None,
     };
-    
+
     c.bench_function("path_transformation", |b| {
         b.iter(|| {
             black_box(route.transform_path("/api/v1/users/123/profile"));
@@ -83,7 +83,7 @@ fn benchmark_path_transformation(c: &mut Criterion) {
 
 fn benchmark_config_validation(c: &mut Criterion) {
     let config = create_test_config();
-    
+
     c.bench_function("config_validation", |b| {
         b.iter(|| {
             black_box(config.validate().is_ok());

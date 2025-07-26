@@ -207,7 +207,8 @@ impl AppState {
         self.set_ready(false);
 
         // Update all health checks to reflect shutdown state
-        let check_names: Vec<String> = self.get_health_checks()
+        let check_names: Vec<String> = self
+            .get_health_checks()
             .into_iter()
             .map(|check| check.name)
             .collect();
@@ -224,7 +225,8 @@ impl AppState {
     /// Remove all health checks (useful for testing or reset scenarios)
     #[allow(dead_code)] // Public API method - useful for testing and cleanup
     pub fn clear_all_health_checks(&self) {
-        let check_names: Vec<String> = self.get_health_checks()
+        let check_names: Vec<String> = self
+            .get_health_checks()
             .into_iter()
             .map(|check| check.name)
             .collect();
@@ -348,13 +350,14 @@ pub async fn health_check_background_task(state: AppState) {
 
         if checks_count > 0 {
             info!("Running {} background health checks...", checks_count);
-            
+
             // Simulate health checks and update their status
-            let check_names: Vec<String> = state.get_health_checks()
+            let check_names: Vec<String> = state
+                .get_health_checks()
                 .into_iter()
                 .map(|check| check.name)
                 .collect();
-            
+
             for name in check_names {
                 // Simulate health check logic (in real implementation, this would check actual services)
                 let is_healthy = match name.as_str() {
@@ -372,16 +375,22 @@ pub async fn health_check_background_task(state: AppState) {
                         true
                     }
                 };
-                
+
                 let (status, message) = if is_healthy {
-                    (HealthStatus::Healthy, Some(format!("{} check passed", name)))
+                    (
+                        HealthStatus::Healthy,
+                        Some(format!("{} check passed", name)),
+                    )
                 } else {
-                    (HealthStatus::Unhealthy, Some(format!("{} check failed", name)))
+                    (
+                        HealthStatus::Unhealthy,
+                        Some(format!("{} check failed", name)),
+                    )
                 };
-                
+
                 state.update_health_check(&name, status, message);
             }
-            
+
             debug!("Background health checks completed");
         } else {
             // Initialize default health checks if none exist

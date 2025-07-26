@@ -200,7 +200,9 @@ fn convert_http_method(method: &Method) -> Result<reqwest::Method, Box<axum::res
         "PATCH" => Ok(reqwest::Method::PATCH),
         _ => {
             warn!("Unsupported HTTP method: {}", method);
-            Err(Box::new((StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response()))
+            Err(Box::new(
+                (StatusCode::METHOD_NOT_ALLOWED, "Method not allowed").into_response(),
+            ))
         }
     }
 }

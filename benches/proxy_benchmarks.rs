@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use ferragate::proxy::ProxyState;
 use ferragate::config::{GatewayConfig, RouteConfig, ServerConfig};
+use ferragate::proxy::ProxyState;
 use std::collections::HashMap;
 
 fn create_proxy_state() -> ProxyState {
@@ -52,13 +52,13 @@ fn create_proxy_state() -> ProxyState {
         ],
         logging: ferragate::config::LoggingConfig::default(),
     };
-    
+
     ProxyState::new(config)
 }
 
 fn benchmark_route_finding(c: &mut Criterion) {
     let proxy_state = create_proxy_state();
-    
+
     let test_paths = vec![
         "/api/v1/users",
         "/api/v1/users/123",
@@ -70,13 +70,13 @@ fn benchmark_route_finding(c: &mut Criterion) {
         "/static/js/app.js",
         "/nonexistent/path",
     ];
-    
+
     c.bench_function("find_matching_route_single", |b| {
         b.iter(|| {
             black_box(proxy_state.find_matching_route("/api/v1/users/123", "GET"));
         })
     });
-    
+
     let mut group = c.benchmark_group("find_matching_route_batch");
     for path_count in [1, 5, 10, 50].iter() {
         group.throughput(Throughput::Elements(*path_count as u64));
@@ -98,15 +98,19 @@ fn benchmark_route_finding(c: &mut Criterion) {
 
 fn benchmark_route_matching_patterns(c: &mut Criterion) {
     let proxy_state = create_proxy_state();
-    
+
     let test_scenarios = vec![
         ("exact_match", "/health", "GET"),
         ("wildcard_short", "/api/v1/test", "GET"),
-        ("wildcard_long", "/api/v1/users/123/profile/settings/advanced", "GET"),
+        (
+            "wildcard_long",
+            "/api/v1/users/123/profile/settings/advanced",
+            "GET",
+        ),
         ("static_file", "/static/images/logo.png", "GET"),
         ("no_match", "/unknown/endpoint", "GET"),
     ];
-    
+
     let mut group = c.benchmark_group("route_matching_patterns");
     for (name, path, method) in test_scenarios {
         group.bench_function(name, |b| {
@@ -120,9 +124,9 @@ fn benchmark_route_matching_patterns(c: &mut Criterion) {
 
 fn benchmark_method_validation(c: &mut Criterion) {
     let proxy_state = create_proxy_state();
-    
+
     let methods = vec!["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
-    
+
     c.bench_function("method_validation_allowed", |b| {
         b.iter(|| {
             for method in &methods {
@@ -130,7 +134,7 @@ fn benchmark_method_validation(c: &mut Criterion) {
             }
         })
     });
-    
+
     c.bench_function("method_validation_restricted", |b| {
         b.iter(|| {
             for method in &methods {

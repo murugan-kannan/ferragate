@@ -426,15 +426,15 @@ mod tests {
     fn test_create_log_directory_error_handling() {
         use std::fs;
         use tempfile::TempDir;
-        
+
         // Create a temporary directory
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.path();
-        
+
         // Create a file in the temp directory
         let file_path = temp_path.join("blocking_file");
         fs::write(&file_path, "test").unwrap();
-        
+
         // Try to create a log directory where a file already exists
         // This should fail on all platforms
         let config = LoggingConfig {
@@ -447,7 +447,7 @@ mod tests {
         };
 
         let result = init_logging(config);
-        
+
         // This should return an error because we can't create a directory where a file exists
         assert!(result.is_err());
         let error = result.unwrap_err();
