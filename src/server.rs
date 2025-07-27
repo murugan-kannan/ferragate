@@ -407,7 +407,7 @@ fn create_router_with_states(proxy_state: ProxyState, health_state: AppState) ->
         .route(READINESS_ENDPOINT, get(readiness_handler))
         .with_state(health_state)
         // Proxy routes (using proxy state)
-        .route("/*path", any(proxy_handler))
+        .route("/{*path}", any(proxy_handler))
         .with_state(proxy_state)
         // Request tracing
         .layer(TraceLayer::new_for_http())
@@ -664,7 +664,7 @@ mod tests {
             },
             routes: vec![
                 crate::config::RouteConfig {
-                    path: "/api/v1/*".to_string(),
+                    path: "/api/v1/{*wildcard}".to_string(),
                     upstream: "http://backend1:3000".to_string(),
                     methods: vec!["GET".to_string(), "POST".to_string()],
                     headers: std::collections::HashMap::new(),
@@ -673,7 +673,7 @@ mod tests {
                     timeout_ms: None,
                 },
                 crate::config::RouteConfig {
-                    path: "/users/*".to_string(),
+                    path: "/users/{*wildcard}".to_string(),
                     upstream: "http://user-service:8000".to_string(),
                     methods: vec![],
                     headers: std::collections::HashMap::new(),
@@ -923,7 +923,7 @@ mod tests {
                 tls: None,
             },
             routes: vec![crate::config::RouteConfig {
-                path: "/single/*".to_string(),
+                path: "/single/{*wildcard}".to_string(),
                 upstream: "http://single:3000".to_string(),
                 methods: vec![],
                 headers: std::collections::HashMap::new(),
@@ -986,7 +986,7 @@ mod tests {
 
         // Add more routes
         config.routes.push(crate::config::RouteConfig {
-            path: "/auth/*".to_string(),
+            path: "/auth/{*wildcard}".to_string(),
             upstream: "http://auth-service:3001".to_string(),
             methods: vec!["POST".to_string()],
             headers: std::collections::HashMap::new(),
@@ -1105,7 +1105,7 @@ mod tests {
                 }),
             },
             routes: vec![crate::config::RouteConfig {
-                path: "/api/v2/*".to_string(),
+                path: "/api/v2/{*wildcard}".to_string(),
                 upstream: "https://backend.internal:8443".to_string(),
                 methods: vec![
                     "GET".to_string(),
@@ -1165,7 +1165,7 @@ mod tests {
                 tls: None,
             },
             routes: vec![crate::config::RouteConfig {
-                path: "/wildcard/*".to_string(),
+                path: "/wildcard/{*wildcard}".to_string(),
                 upstream: "http://wildcard-service:8000".to_string(),
                 methods: vec![], // Empty methods
                 headers: std::collections::HashMap::new(),
@@ -1187,7 +1187,7 @@ mod tests {
                 tls: None,
             },
             routes: vec![crate::config::RouteConfig {
-                path: "/single/*".to_string(),
+                path: "/single/{*wildcard}".to_string(),
                 upstream: "http://single-service:8000".to_string(),
                 methods: vec!["HEAD".to_string()],
                 headers: std::collections::HashMap::new(),
@@ -1378,7 +1378,7 @@ mod tests {
                 tls: None,
             },
             routes: vec![RouteConfig {
-                path: "/api/v2/*".to_string(),
+                path: "/api/v2/{*wildcard}".to_string(),
                 upstream: "https://backend.internal:8443".to_string(),
                 methods: vec![],
                 headers: std::collections::HashMap::new(),
