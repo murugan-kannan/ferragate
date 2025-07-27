@@ -12,6 +12,11 @@ lcov.info
 *.profraw
 *.profdata
 
+# SonarCloud files
+.sonar/
+.sonarqube/
+clippy-report.json
+
 # IDE and editor files
 .vscode/
 .idea/

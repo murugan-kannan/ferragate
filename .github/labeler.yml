@@ -1,0 +1,67 @@
+# Configuration for automatic PR labeling
+# See: https://github.com/actions/labeler
+
+# Documentation changes
+documentation:
+  - docs/**/*
+  - README.md
+  - "*.md"
+
+# CI/CD changes
+ci-cd:
+  - .github/workflows/**/*
+  - .github/**/*
+  - Dockerfile
+  - docker-compose.yml
+  - Makefile
+
+# Dependencies
+dependencies:
+  - Cargo.toml
+  - Cargo.lock
+
+# Source code changes
+core:
+  - src/**/*
+
+# Configuration changes
+configuration:
+  - "*.toml"
+  - "*.yml"
+  - "*.yaml"
+  - "*.json"
+
+# Testing
+testing:
+  - tests/**/*
+  - benches/**/*
+  - "**/test*"
+
+# Security & certificates
+security:
+  - certs/**/*
+  - deny.toml
+
+# Build & release
+build:
+  - target/**/*
+  - Cargo.toml
+  - Cargo.lock
+  - Makefile
+
+# Logging
+logging:
+  - logs/**/*
+  - src/logging.rs
+
+# Network & proxy
+networking:
+  - src/proxy.rs
+  - src/server.rs
+  - gateway*.toml
+
+# TLS/HTTPS
+tls:
+  - src/tls.rs
+  - certs/**/*
+  - "**/https*"

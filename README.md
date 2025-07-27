@@ -7,6 +7,8 @@
 [![CI](https://github.com/murugan-kannan/ferragate/actions/workflows/ci.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/murugan-kannan/ferragate/actions/workflows/codeql.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/codeql.yml)
 [![Release](https://github.com/murugan-kannan/ferragate/actions/workflows/release.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/release.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=murugan-kannan_ferragate&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=murugan-kannan_ferragate)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=murugan-kannan_ferragate&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=murugan-kannan_ferragate)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/zECWRRgW)
 
 ---

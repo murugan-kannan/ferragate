@@ -147,24 +147,27 @@ jobs:
       - name: Run cargo deny
         run: cargo deny check
 
-  coverage:
-    name: Code Coverage
+  sonarcloud:
+    name: SonarCloud Analysis
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
+      packages: read
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better analysis
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: llvm-tools-preview
+          components: llvm-tools-preview, clippy
 
       - name: Setup cache
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "coverage-cache"
+          shared-key: "sonar-cache"
 
       - name: Install cargo-llvm-cov
         run: cargo install cargo-llvm-cov
@@ -174,43 +177,20 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-      - name: Debug coverage file
+      - name: Generate clippy report
         run: |
-          echo "Coverage file info:"
-          ls -la lcov.info || echo "lcov.info not found"
-          echo "First 10 lines of coverage file:"
-          head -10 lcov.info || echo "Cannot read lcov.info"
-          echo "Coverage file size:"
-          wc -l lcov.info || echo "Cannot count lines in lcov.info"
+          cargo clippy --all-targets --all-features --message-format=json > clippy-report.json || true
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
-          flags: unittests
-          name: codecov-umbrella
+      - name: Run tests for SonarCloud
+        run: cargo test --all-features --workspace
+        env:
+          RUST_BACKTRACE: 1
 
-      - name: Upload to Codecov using bash uploader (fallback)
-        if: failure()
-        run: |
-          if [ -n "${{ secrets.CODECOV_TOKEN }}" ]; then
-            curl -Os https://uploader.codecov.io/latest/linux/codecov
-            chmod +x codecov
-            ./codecov -f lcov.info -t ${{ secrets.CODECOV_TOKEN }}
-          else
-            echo "CODECOV_TOKEN not available, skipping fallback upload"
-          fi
-
-      - name: Upload coverage artifact (fallback)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: lcov.info
-          retention-days: 5
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   docs:
     name: Documentation
