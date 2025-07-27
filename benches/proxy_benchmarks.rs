@@ -1,8 +1,8 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::hint::black_box;
 use ferragate::config::{GatewayConfig, RouteConfig, ServerConfig};
 use ferragate::proxy::ProxyState;
 use std::collections::HashMap;
+use std::hint::black_box;
 
 fn create_proxy_state() -> ProxyState {
     let config = GatewayConfig {

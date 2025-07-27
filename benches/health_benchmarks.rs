@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use ferragate::health::{AppState, HealthStatus};
+use std::hint::black_box;
 
 fn benchmark_health_operations(c: &mut Criterion) {
     let app_state = AppState::new();
