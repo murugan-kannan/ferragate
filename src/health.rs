@@ -5,7 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::{Duration, SystemTime};
 use tracing::{debug, info, instrument, warn};
 
-use crate::constants::*;
+use crate::constants::{MSG_HEALTH_CHECK_FAILED, MSG_SERVER_NOT_READY};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheck {

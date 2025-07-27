@@ -13,7 +13,10 @@ use tracing::{error, info, warn};
 
 #[cfg_attr(not(test), allow(unused_imports))]
 use crate::config::{GatewayConfig, LoggingConfig, RouteConfig, ServerConfig};
-use crate::constants::*;
+use crate::constants::{
+    CONTROL_SOCKET_BUFFER_SIZE, CONTROL_SOCKET_PREFIX, HEALTH_ENDPOINT, LIVENESS_ENDPOINT,
+    LOG_SERVER_SHUTDOWN, LOG_SERVER_STARTING, READINESS_ENDPOINT,
+};
 use crate::error::{FerragateError, FerragateResult};
 use crate::health::{health_handler, liveness_handler, readiness_handler, AppState};
 use crate::proxy::{handle_not_found, proxy_handler, ProxyState};
