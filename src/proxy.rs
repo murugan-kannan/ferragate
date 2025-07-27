@@ -11,7 +11,10 @@ use std::time::Duration;
 use tracing::{debug, error, instrument, warn};
 
 use crate::config::{GatewayConfig, RouteConfig};
-use crate::constants::*;
+use crate::constants::{
+    CLIENT_POOL_IDLE_TIMEOUT_SECS, CLIENT_POOL_MAX_IDLE_PER_HOST, CLIENT_USER_AGENT,
+    DEFAULT_TIMEOUT_MS, FILTERED_HEADERS, MSG_INVALID_REQUEST_BODY, MSG_ROUTE_NOT_FOUND,
+};
 
 /// State shared across all proxy handlers
 ///

@@ -1,7 +1,7 @@
 use axum_server::tls_rustls::RustlsConfig;
 use tracing::info;
 
-use crate::constants::*;
+use crate::constants::{CERT_COUNTRY, CERT_ORGANIZATION, LOG_TLS_ENABLED};
 use crate::error::{FerragateError, FerragateResult};
 
 /// Load TLS configuration from certificate and key files
@@ -118,7 +118,7 @@ pub fn create_self_signed_cert(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{create_self_signed_cert, load_tls_config};
     use std::fs;
     use tempfile::tempdir;
 

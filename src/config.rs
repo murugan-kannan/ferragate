@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use std::fs;
 use tracing::{debug, info, warn};
 
-use crate::constants::*;
+use crate::constants::{
+    DEFAULT_HOST, DEFAULT_HTTPS_PORT, DEFAULT_HTTP_PORT, DEFAULT_LOG_LEVEL, DEFAULT_TIMEOUT_MS,
+    LOG_CONFIG_LOADED,
+};
 use crate::error::{FerragateError, FerragateResult};
 
 /// Main gateway configuration structure

@@ -3,7 +3,7 @@ use tracing::info;
 use tracing_appender::{non_blocking, rolling};
 use tracing_subscriber::{fmt::time::UtcTime, EnvFilter};
 
-use crate::constants::*;
+use crate::constants::{DEFAULT_LOG_DIR, DEFAULT_LOG_FILE_PREFIX, DEFAULT_LOG_LEVEL};
 use crate::error::{FerragateError, FerragateResult};
 
 /// Configuration for the Ferragate logging system

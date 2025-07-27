@@ -3,7 +3,10 @@ use std::path::PathBuf;
 use tracing::{error, info};
 
 use crate::config::GatewayConfig;
-use crate::constants::*;
+use crate::constants::{
+    CERT_FILE_EXTENSION, DEFAULT_CERT_DIR, DEFAULT_CONFIG_FILE, DEFAULT_HOSTNAME,
+    KEY_FILE_EXTENSION,
+};
 use crate::error::{FerragateError, FerragateResult};
 
 /// Ferragate API Gateway CLI
