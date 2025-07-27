@@ -1,4 +1,6 @@
 name: Nightly
+permissions:
+  contents: read
 
 on:
   schedule:
@@ -38,6 +40,9 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -77,6 +82,8 @@ jobs:
   performance-baseline:
     name: Performance Baseline
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
