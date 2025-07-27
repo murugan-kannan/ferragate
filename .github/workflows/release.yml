@@ -162,6 +162,8 @@ jobs:
     name: Build and Push Docker Images
     needs: create-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
