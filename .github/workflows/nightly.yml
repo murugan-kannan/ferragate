@@ -77,6 +77,8 @@ jobs:
   performance-baseline:
     name: Performance Baseline
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
