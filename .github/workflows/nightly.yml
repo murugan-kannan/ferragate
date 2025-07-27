@@ -14,6 +14,8 @@ jobs:
   nightly-test:
     name: Nightly Rust Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     continue-on-error: true
     steps:
       - name: Checkout sources
