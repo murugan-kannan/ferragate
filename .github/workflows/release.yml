@@ -18,6 +18,8 @@ env:
 jobs:
   create-release:
     name: Create Release
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
