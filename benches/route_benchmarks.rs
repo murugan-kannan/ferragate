@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use std::hint::black_box;
 use ferragate::config::{GatewayConfig, RouteConfig, ServerConfig};
 use std::collections::HashMap;
+use std::hint::black_box;
 
 fn create_test_config() -> GatewayConfig {
     GatewayConfig {
