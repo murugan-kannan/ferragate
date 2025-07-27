@@ -32,3 +32,4 @@ clippy-report.json
 
 # Docker
 .dockerignore.bak
+.sonarlint/connectedMode.json

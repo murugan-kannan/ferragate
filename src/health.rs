@@ -338,6 +338,37 @@ pub async fn readiness_handler(
     (status_code, Json(response))
 }
 
+/// Execute a single health check and update its status
+fn execute_health_check(state: &AppState, name: &str) {
+    // Simulate health check logic (in real implementation, this would check actual services)
+    let is_healthy = match name {
+        "system" => {
+            // Simulate system health check
+            let uptime = state.get_uptime_seconds();
+            uptime > 0 // System is healthy if it has been running
+        }
+        "memory" => {
+            // Simulate memory check (always healthy for demo)
+            true
+        }
+        _ => {
+            // Default health check
+            true
+        }
+    };
+
+    let (status, message) = if is_healthy {
+        (HealthStatus::Healthy, Some(format!("{name} check passed")))
+    } else {
+        (
+            HealthStatus::Unhealthy,
+            Some(format!("{name} check failed")),
+        )
+    };
+
+    state.update_health_check(name, status, message);
+}
+
 /// Background task to periodically run health checks
 #[instrument(skip(state))]
 pub async fn health_check_background_task(state: AppState) {
@@ -359,33 +390,7 @@ pub async fn health_check_background_task(state: AppState) {
                 .collect();
 
             for name in check_names {
-                // Simulate health check logic (in real implementation, this would check actual services)
-                let is_healthy = match name.as_str() {
-                    "system" => {
-                        // Simulate system health check
-                        let uptime = state.get_uptime_seconds();
-                        uptime > 0 // System is healthy if it has been running
-                    }
-                    "memory" => {
-                        // Simulate memory check (always healthy for demo)
-                        true
-                    }
-                    _ => {
-                        // Default health check
-                        true
-                    }
-                };
-
-                let (status, message) = if is_healthy {
-                    (HealthStatus::Healthy, Some(format!("{name} check passed")))
-                } else {
-                    (
-                        HealthStatus::Unhealthy,
-                        Some(format!("{name} check failed")),
-                    )
-                };
-
-                state.update_health_check(&name, status, message);
+                execute_health_check(&state, &name);
             }
 
             debug!("Background health checks completed");

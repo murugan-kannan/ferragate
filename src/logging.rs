@@ -48,6 +48,68 @@ fn parse_env_bool(var_name: &str, default: bool) -> bool {
         .unwrap_or(default)
 }
 
+/// Set up file-based logging subscriber
+fn setup_file_logging(config: &LoggingConfig, env_filter: EnvFilter) -> Result<(), String> {
+    // Create file appender with daily rotation using the prefix
+    let file_appender = rolling::daily(&config.log_dir, &config.log_file_prefix);
+    let (non_blocking_appender, _guard) = non_blocking(file_appender);
+
+    // We need to keep the guard alive for the lifetime of the program
+    // In a real application, you'd want to store this somewhere
+    std::mem::forget(_guard);
+
+    if config.json_format {
+        // For JSON format, we can only do file OR console due to type constraints
+        // Prioritize file logging for JSON format
+        tracing_subscriber::fmt()
+            .with_timer(UtcTime::rfc_3339())
+            .with_target(true)
+            .with_file(config.include_location)
+            .with_line_number(config.include_location)
+            .with_writer(non_blocking_appender)
+            .with_ansi(false) // No ANSI in files
+            .with_env_filter(env_filter)
+            .json()
+            .try_init()
+            .map_err(|e| e.to_string())
+    } else {
+        // For non-JSON format, we can use a tee writer to write to both
+        use tracing_subscriber::fmt::writer::MakeWriterExt;
+
+        // Create a tee writer that writes to both stdout and file
+        let tee_writer = non_blocking_appender.and(std::io::stdout);
+
+        tracing_subscriber::fmt()
+            .with_timer(UtcTime::rfc_3339())
+            .with_target(true)
+            .with_file(config.include_location)
+            .with_line_number(config.include_location)
+            .with_writer(tee_writer)
+            .with_ansi(false) // Disable ANSI to keep files clean (console will lose colors as tradeoff)
+            .with_env_filter(env_filter)
+            .try_init()
+            .map_err(|e| e.to_string())
+    }
+}
+
+/// Set up console-only logging subscriber
+fn setup_console_logging(config: &LoggingConfig, env_filter: EnvFilter) -> Result<(), String> {
+    // Console-only logging with ANSI colors
+    let builder = tracing_subscriber::fmt()
+        .with_timer(UtcTime::rfc_3339())
+        .with_target(true)
+        .with_file(config.include_location)
+        .with_line_number(config.include_location)
+        .with_ansi(true) // Enable ANSI colors for console
+        .with_env_filter(env_filter);
+
+    if config.json_format {
+        builder.json().try_init().map_err(|e| e.to_string())
+    } else {
+        builder.try_init().map_err(|e| e.to_string())
+    }
+}
+
 /// Initialize the logging system with the given configuration
 ///
 /// Sets up tracing subscriber with the specified level, format, and output options.
@@ -76,59 +138,9 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
 
     // Set up the subscriber based on whether file logging is enabled
     let result = if config.log_to_file {
-        // Create file appender with daily rotation using the prefix
-        let file_appender = rolling::daily(&config.log_dir, &config.log_file_prefix);
-        let (non_blocking_appender, _guard) = non_blocking(file_appender);
-
-        // We need to keep the guard alive for the lifetime of the program
-        // In a real application, you'd want to store this somewhere
-        std::mem::forget(_guard);
-
-        if config.json_format {
-            // For JSON format, we can only do file OR console due to type constraints
-            // Prioritize file logging for JSON format
-            tracing_subscriber::fmt()
-                .with_timer(UtcTime::rfc_3339())
-                .with_target(true)
-                .with_file(config.include_location)
-                .with_line_number(config.include_location)
-                .with_writer(non_blocking_appender)
-                .with_ansi(false) // No ANSI in files
-                .with_env_filter(env_filter)
-                .json()
-                .try_init()
-        } else {
-            // For non-JSON format, we can use a tee writer to write to both
-            use tracing_subscriber::fmt::writer::MakeWriterExt;
-
-            // Create a tee writer that writes to both stdout and file
-            let tee_writer = non_blocking_appender.and(std::io::stdout);
-
-            tracing_subscriber::fmt()
-                .with_timer(UtcTime::rfc_3339())
-                .with_target(true)
-                .with_file(config.include_location)
-                .with_line_number(config.include_location)
-                .with_writer(tee_writer)
-                .with_ansi(false) // Disable ANSI to keep files clean (console will lose colors as tradeoff)
-                .with_env_filter(env_filter)
-                .try_init()
-        }
+        setup_file_logging(&config, env_filter)
     } else {
-        // Console-only logging with ANSI colors
-        let builder = tracing_subscriber::fmt()
-            .with_timer(UtcTime::rfc_3339())
-            .with_target(true)
-            .with_file(config.include_location)
-            .with_line_number(config.include_location)
-            .with_ansi(true) // Enable ANSI colors for console
-            .with_env_filter(env_filter);
-
-        if config.json_format {
-            builder.json().try_init()
-        } else {
-            builder.try_init()
-        }
+        setup_console_logging(&config, env_filter)
     };
 
     // Handle initialization result
@@ -148,7 +160,7 @@ pub fn init_logging(config: LoggingConfig) -> FerragateResult<()> {
             }
         }
         Err(e) => {
-            if e.to_string().contains("already been set") {
+            if e.contains("already been set") {
                 // Subscriber already set, which is okay for tests
                 eprintln!("Warning: Global subscriber already set: {e}");
             } else {
