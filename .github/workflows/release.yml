@@ -67,6 +67,8 @@ jobs:
 
   build-and-upload:
     name: Build and Upload (${{ matrix.target }})
+    permissions:
+      contents: write
     needs: create-release
     runs-on: ${{ matrix.os }}
     strategy:
