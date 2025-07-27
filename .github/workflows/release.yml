@@ -164,6 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
