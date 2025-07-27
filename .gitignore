@@ -3,6 +3,7 @@
 # Log files
 /logs/*.log
 /logs/*.log.*
+/logs/*
 
 # Environment files
 .env
