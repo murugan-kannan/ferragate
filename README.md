@@ -3,9 +3,11 @@
 > **Multi-tenant, high-performance API Gateway built in Rust** - Secure, scalable, and developer-friendly
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.80+-orange.svg)](https://www.rust-lang.org/)
-[![Build Status](https://img.shields.io/github/workflow/status/murugan-kannan/ferragate/CI)](https://github.com/murugan-kannan/ferragate/actions)
-[![Discord](https://img.shields.io/discord/your-discord-id?label=discord)](https://discord.gg/zECWRRgW)
+[![Rust](https://img.shields.io/badge/rust-1.88+-orange.svg)](https://www.rust-lang.org/)
+[![CI](https://github.com/murugan-kannan/ferragate/actions/workflows/ci.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/murugan-kannan/ferragate/actions/workflows/codeql.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/codeql.yml)
+[![Release](https://github.com/murugan-kannan/ferragate/actions/workflows/release.yml/badge.svg)](https://github.com/murugan-kannan/ferragate/actions/workflows/release.yml)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/zECWRRgW)
 
 ---
 
